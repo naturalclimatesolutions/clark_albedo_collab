@@ -48,6 +48,7 @@ Antarctica = lats <= latA;
 
 greyval = [0.7,0.7,0.7];
 lightgreyval = [.9,.9,.9];
+hotmap = colormap(hot);
 jetmap = colormap(jet);
 lastblue = find(jetmap(:,1)==0,1,'last');
 firstyellow = find(jetmap(:,1)==1,1,'first');
@@ -129,7 +130,7 @@ end
 % d. Plot map of missing data
 misdata = sum(double(MisSnow),3);
 misdata(landmask==0) = NaN;
-x = flipud(colormap(hot));
+x = flipud(hotmap);
 mint = floor(length(x)/11);
 misbar = x(1:mint:length(x),:);
 if length(misbar) > 11; misbar = misbar(1:length(misbar)-1,:); end
@@ -163,9 +164,8 @@ close all
 albedovars = cellstr(albsn);
 albedoscale = [0:0.05:0.4,0.5,0.7,1];
 nbcc = length(albedoscale)-1;
-x = colormap(hot);
-mapint = floor(length(x) / nbcc);
-cathot = x(1:mapint:length(x),:);
+mapint = floor(length(hotmap) / nbcc);
+cathot = hotmap(1:mapint:length(hotmap),:);
 if length(cathot) > nbcc, cathot = cathot([1:length(cathot)-2,length(cathot)],:); end
 
 % b. Loop through biome-type
@@ -306,6 +306,8 @@ end
 clear radiativekernel kernelfilenames kernelvarnames kk
 
 % b. Calculate annual and monthly ratios between kernels
+%    (because I had created this before importing CACKv1.0, I will keep it in the other kernels
+%     units and change CACKv1.0 accordingly)
 monthlymap =  NaN(nlat,nlon,nmonths,nkernels);
 map = NaN(nlat,nlon,nkernels);
 kvn = cellstr(lower(kernels));
@@ -351,7 +353,7 @@ for kk = 1 : nkernels
     h.Units = 'pixels';
     h.Position = [1,31,2560,1333];
     axesm('MapProjection','robinson','Frame','on','MeridianLabel','on','ParallelLabel','on');
-    nmap = map(:,:,kk);
+    nmap = map(:,:,kk) .* kernelscale(kk)/kernelscale(2);
     nmap(landmask==0) = NaN;
     pcolorm(lats,lons,nmap)
     caxis([-3 0])
@@ -365,7 +367,7 @@ for kk = 1 : nkernels
         "due to changes in surface albedo");
     gridm
     plotm(lat,long,'Color','Black')
-    fname = strcat(resultslocalfolder,"Figures\ResampledKernel_",kernels(kk));
+    fname = strcat(resultslocalfolder,"Figures\Kernels\ResampledKernel_",kernels(kk));
     print(strcat(fname,".jpg"),"-djpeg")
     
     if kk == 2, continue; end
@@ -397,7 +399,7 @@ for kk = 1 : nkernels
         " [",num2str(val1),",",num2str(val2),"]");
     gridm
     plotm(lat,long,'Color','Black')
-    fname = strcat(resultslocalfolder,"Figures\KernelRatio_",kernels(kk));
+    fname = strcat(resultslocalfolder,"Figures\Kernels\KernelRatio_",kernels(kk));
     print(strcat(fname,".jpg"),"-djpeg")
   
 end    
@@ -410,7 +412,7 @@ for kk = 1 : nkernels
         h.Units = 'pixels';
         h.Position = [1,31,2560,1333];
         axesm('MapProjection','robinson','Frame','on','MeridianLabel','off','ParallelLabel','off');
-        nmap = monthlymap(:,:,m,kk);
+        nmap = monthlymap(:,:,m,kk) .* kernelscale(kk)/kernelscale(2);
         nmap(landmask==0) = NaN;
         pcolorm(lats,lons,nmap)
         caxis([-5 0])
@@ -424,7 +426,7 @@ for kk = 1 : nkernels
         ax.Title.FontSize = 50;
         ax.Title.String = strcat(kernels(kk)," - ",monthln(m));
         plotm(lat,long,'Color','Black')
-        fname = strcat(resultslocalfolder,"Figures\ResampledKernel.",kernels(kk),".",monthln(m));
+        fname = strcat(resultslocalfolder,"Figures\Kernels\ResampledKernel.",kernels(kk),".",monthln(m));
         print(strcat(fname,".jpg"),"-djpeg")
         
         if kk == 2, continue; end
@@ -456,7 +458,7 @@ for kk = 1 : nkernels
         ax = gca;
         ax.Title.FontSize = 50;
         ax.Title.String = strcat(monthln(m)," [",num2str(val1),",",num2str(val2),"]");
-        fname = strcat(resultslocalfolder,"Figures\KernelRatio.",kernels(kk),".",monthln(m));
+        fname = strcat(resultslocalfolder,"Figures\Kernels\KernelRatio.",kernels(kk),".",monthln(m));
         print(strcat(fname,".jpg"),"-djpeg")
     end  
 end    
@@ -480,15 +482,12 @@ load(datafname,resdata{:});
 % a. Prepare map scale and colorbar    
 valcat = [-1200,-800:200:-200,-100,-50,-20,20,50,100,200:200:800,1200];
 nbcc = floor((length(valcat)-1)/2);
-x = colormap(jet);
-lastblue = find(x(:,1)==0,1,'last');
 blueint = floor(lastblue/nbcc);
-bluescale = x(1:blueint:lastblue,:);
+bluescale = jetmap(1:blueint:lastblue,:);
 nlb = numel(bluescale)/3;
 if nlb > nbcc, bluescale = bluescale([1:nlb-2,nlb],:); end
-firstyellow = find(x(:,1)==1,1,'first');
-yellowint = floor((length(x)-firstyellow)/nbcc);
-yellowscale = x(firstyellow:yellowint:length(x),:);
+yellowint = floor((length(jetmap)-firstyellow)/nbcc);
+yellowscale = jetmap(firstyellow:yellowint:length(jetmap),:);
 nly = numel(yellowscale)/3;
 if nly > nbcc, yellowscale = yellowscale([1,3:nly],:); end
 greyval = [0.7,0.7,0.7];
