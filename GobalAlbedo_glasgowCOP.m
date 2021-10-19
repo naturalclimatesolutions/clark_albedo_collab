@@ -15,7 +15,7 @@
 %
 % Created 6/30/2021 by Natalia Hasler, Clark University
 
-% Last modified: NH 9/22/2021
+% Last modified: NH 9/27/2021
 %                (See Modification history at end of file)
 
 
@@ -94,7 +94,6 @@ resultslocalfolder = strcat(resultdir,"GlasgowCOP\");
 
 % 3. Define input parameters
 % --------------------------
-Cao_PgC = 270*2.13;                     % pre-industrial CO2 in atmos [Pg C]
 Ca_PgC  = 400*2.13;                     % current base CO2 in atmos [Pg C]
 Aglobe  = 5.1007e14;                    % global surface area [m2]
 latlonscale = 0.05;                     % MODIS GCM scale
@@ -123,7 +122,7 @@ scale_albedo = 0.001;                   % Albedo scale value
 nalb = length(albedo_types);            % number of albedo types
 
 kernels = ["CAM3","CAM5",...            % Radiative kernel names
-    "ECHAM6","HADGEM2"];
+    "ECHAM6","HADGEM2","CACK1","HADGEM3"];
 nkernels = length(kernels);             % number of radiative kernels
 
 nlcc = length(pathwayslandcover);       % number of individual land cover conversions
@@ -137,22 +136,36 @@ nlon = nlon1dg ./ latlonscale;          % number of pixels in MODIS-GCM longitud
 
 kernelfilenames = strings(nkernels,1);  % kernel file names array (used in read loop)
 kernelvarnames = strings(nkernels,1);   % kernel variable name in original file
+kernelscale = ones(nkernels,1);         % values of radiaive forcings are often stored for 0.01
+                                        % albedo changes, and sometimes sign is opposite too ...
 for kk = 1 : nkernels
     kname = kernels(kk);
     switch kname
         case "CAM3"
-            kernelfilenames(kk) = "CAM3_albedo_sw_kernel.nc";
+            kernelfilenames(kk) = "CAM3\CAM3_albedo_sw_kernel.nc";
             kernelvarnames(kk) = "monkernel";
+            kernelscale(kk) = 100;
             cam3i = kk;
         case "CAM5"
-            kernelfilenames(kk) = "alb.kernel.nc";
+            kernelfilenames(kk) = "CAM5\alb.kernel.nc";
             kernelvarnames(kk) = "FSNT";
+            kernelscale(kk) = 100;
         case "ECHAM6"
-            kernelfilenames(kk) = "ECHAM6_CTRL_kernel.nc";
+            kernelfilenames(kk) = "ECHAM6\ECHAM6_CTRL_kernel.nc";
             kernelvarnames(kk) = "A_srad0";
+            kernelscale(kk) = 100;
         case "HADGEM2"
-            kernelfilenames(kk) = "HadGEM2_sw_TOA_L38.nc";
+            kernelfilenames(kk) = "HADGEM2\HadGEM2_sw_TOA_L38.nc";
             kernelvarnames(kk) = "albedo_sw";
+            kernelscale(kk) = 100;
+        case "CACK1"
+            kernelfilenames(kk) = "CACKv1.0\CACKv1.0.nc";
+            kernelvarnames(kk) = "CACK CM";
+            kernelscale(kk) = -1;
+        case "HADGEM3"
+            kernelfilenames(kk) = "HadGEM3-GA7.1_TOA_kernel_L85.nc";
+            kernelvarnames(kk) = "albedo_sw";
+            kernelscale(kk) = 100;
         otherwise
             error("This kernel as not been defined yet!")
     end
@@ -181,8 +194,6 @@ blockalbedo = zeros(blocksize,blocksize,nmonths,nbiomes);
 % c. Global output arrays
 forestpathways = NaN(nlat,nlon,nkernels,nfrst); %#ok<NASGU>
 nonforestpathways = NaN(nlat,nlon,nkernels); %#ok<NASGU>
-missfpw = false(nlat,nlon,nmonths,nfrst); %#ok<NASGU>
-missnfpw = false(nlat,nlon,nmonths); %#ok<NASGU>
 
 for pp = 1 : npw
     if sum(pwid==pp) == nfrst
@@ -238,7 +249,7 @@ glodatafname = strcat(rootdir,"AlbedoGeneralData.mat");
 save(glodatafname,'regoutputfiles','boxpath','nblocks','resultslocalfolder','blocksize',...
     'nblx','nbly','nlon','nlat','nkernels','IGBPBiomes','biomes_igbp','Cao_PgC','Ca_PgC',...
     'nfrst','monthnames','albedo_types','albsn','albid','fillvalue_albedo','scale_albedo','nalb',...
-    'kernels','nbiomes','nmonths','Aglobe','latlonscale','cani','canj',...
+    'kernels','kernelscale','nbiomes','nmonths','Aglobe','latlonscale','cani','canj',...
     'pathways','pwnames','npw','pathwayslandcover','nlcc','pwid');
 
 
@@ -357,13 +368,19 @@ clear direct_solar diffuse_solar frdiff m scaleratio x y
 % 4. Import/Resample radiative kernels
 % ------------------------------------
 for kk = 1 : nkernels
-    subdatafname = strcat(radiativekernel,kernels(kk),"\",kernelfilenames(kk));
+    subdatafname = strcat(radiativekernel,kernelfilenames(kk));
     khires = albkern_hires;
     
     % a. Import kernel data
-    korig = permute(ncread(subdatafname,kernelvarnames(kk)),[2 1 3]);
-    lats = ncread(subdatafname,'lat');
-    lons = ncread(subdatafname,'lon');
+    if kernels(kk) == "CACK1"
+        korig = ncread(subdatafname,kernelvarnames(kk));
+        lats = ncread(subdatafname,'Latitude');
+        lons = ncread(subdatafname,'Longitude');
+    else
+        korig = permute(ncread(subdatafname,kernelvarnames(kk)),[2 1 3]);
+        lats = ncread(subdatafname,'lat');
+        lons = ncread(subdatafname,'lon');
+    end
     nkolt = length(lats);
     nkoln = length(lons);
     
@@ -403,16 +420,24 @@ for kk = 1 : nkernels
         else
             lasti = nlat;
         end
-        fstj = 0; inj = 1;leftoverj = 0;
-        for j = 1 : nkoln + 1
+        inj = 1;
+        fstj = round((lonswrap(1) - 180) / latlonscale);
+        leftoverj = ((lonswrap(1) - 180) / latlonscale) - fstj;
+        if lons(1) == 0, nbint = nkoln + 1; else, nbint = nkoln; end
+        for j = 1 : nbint
             if j == nkoln + 1
                 kval = korigwrap(i,1,:);
                 lastj = nlon;
                 sstj = 0;
             else
                 kval = korigwrap(i,j,:);
-                if j == nkoln, el = 180; elseif lonswrap(j+1) == 0, el = 360;
-                else, el = lonswrap(j+1); end
+                if j == nkoln
+                    el = lonswrap(1);
+                elseif lonswrap(j+1) < lonswrap(j)
+                    el = 360 + lonswrap(j+1);
+                else
+                    el = lonswrap(j+1);
+                end
                 stepj = (el - lonswrap(j)) / latlonscale;
                 sstj = round(stepj / 2);
                 leftoverj = leftoverj + stepj - sstj*2;
@@ -435,8 +460,9 @@ for kk = 1 : nkernels
                 npixj(j) = length(inj:lastj);
             end
             inj = lastj + 1;
-            fstj = sstj;           
+            fstj = sstj;
         end
+            
         npixi(i) = length(ini:lasti);
         ini = lasti + 1;
         fsti = ssti;       
@@ -499,6 +525,8 @@ for rr = 1 : nblocks
     cam5 = CAM5(regi,regj,:);
     echam6 = ECHAM6(regi,regj,:);
     hadgem2 = HADGEM2(regi,regj,:);
+    cack1 = CACK1(regi,regj,:);
+    hadgem3 = HADGEM3(regi,regj,:);
     
     % f. Pixel area
     pixelarea = globalpixelarea(regi,regj);
@@ -507,7 +535,7 @@ for rr = 1 : nblocks
     subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
     save(subdatafname,'x','y','regi','regj','landcoverprop','blocklandmask',...
         'snowcover','directsolar','diffusesolar','diffusefraction',...
-        'cam3','cam5','echam6','hadgem2','pixelarea');
+        'cam3','cam5','echam6','hadgem2','cack1','hadgem3','pixelarea');
     
     % h. Check if it includes Canada
     a = ismember(regi,cani);
@@ -758,7 +786,7 @@ for rr = 1 : nblocks
                                         
                         % e. Compute monthly TOA RF in [W m-2]
                         for kk = 1 : nkernels
-                            ta(m,kk) =  Wda .* sm_kernels(i,j,m,kk) .*100;
+                            ta(m,kk) =  Wda .* sm_kernels(i,j,m,kk) .*kernelscale(kk); %#ok<PFBNS>
                         end
                     
                         % f. Save albedo difference from ENF to GRA for Canada
@@ -872,22 +900,22 @@ for rr = 1 : nblocks
             eval(strcat("Miss",pwnames(pp),"(regi,regj,:,:) = regmiss",lower(pwnames(pp)),";"));
         end
 
-        if ismember(rr,canblocks) == 1
-            for i = 1 : blocksize
-                for j = 1 : blocksize
-                    if ismember(regi(i),cani) == 1 && ismember(regj(j),canj) == 1
-                        ci = ismember(cani,regi(i));
-                        cj = ismember(canj,regj(j));
-                        CanENF2CRO_CAM3RF(ci,cj,:) = canrf(i,j,:);
-                        CanAlbDiffENF2GRA(ci,cj,:) = canda(i,j,:);
-                        CanENF2GRA_CAM3CO2e(ci,cj) =  cangra(i,j);
-                        CanENF2CRO_CAM3CO2e(ci,cj) = cancro(i,j);
-                    end
-                end
-            end
-            save(subdatafname,'canrf','canda','cangra','cancro','-append')            
-        end
-        
+%         if ismember(rr,canblocks) == 1
+%             for i = 1 : blocksize
+%                 for j = 1 : blocksize
+%                     if ismember(regi(i),cani) == 1 && ismember(regj(j),canj) == 1
+%                         ci = ismember(cani,regi(i));
+%                         cj = ismember(canj,regj(j));
+%                         CanENF2CRO_CAM3RF(ci,cj,:) = canrf(i,j,:);
+%                         CanAlbDiffENF2GRA(ci,cj,:) = canda(i,j,:);
+%                         CanENF2GRA_CAM3CO2e(ci,cj) =  cangra(i,j);
+%                         CanENF2CRO_CAM3CO2e(ci,cj) = cancro(i,j);
+%                     end
+%                 end
+%             end
+%             save(subdatafname,'canrf','canda','cangra','cancro','-append')            
+%         end
+%         
         regvars = cellstr(cat(1,strcat("regco2",lower(pwnames)),...
             strcat("regmiss",lower(pwnames))));
         save(subdatafname,regvars{:},'-append')
@@ -907,7 +935,7 @@ for rr = 1 : nblocks
     end     % end if region has land data
 end
         
-datafname = strcat(regoutputfiles,"AlbedoFinalData.mat");
+datafname = strcat(regoutputfiles,"AlbedoFinalData6ker.mat");
 globalvars = cellstr(cat(1,pwnames,strcat("Miss",pwnames)));
 save(datafname,globalvars{:},'-v7.3')
 save(datafname,'CanENF2CRO_CAM3RF','CanAlbDiffENF2GRA',...
@@ -944,6 +972,7 @@ for pp = 1 : npw
         for kk = 1 : nkernels
             eval(strcat("data = ",pname,"(:,:,kk,ll);"))
             data(Antarctica) = NaN; %#ok<SAGROW>
+            data(landmask==0) = NaN; %#ok<SAGROW> % this should not be necessary, but somehow I still got zero values
             fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
                 pathwayslandcover(z,2),"_",kernels(kk),".tif");
             geotiffwrite_easy(fname,bbox,data);
@@ -962,6 +991,7 @@ end
 % **************
 % (i don't list any cosmetic changes)
 
+% 9/27/21 NH Added the CACKv1.0 and HadGEM3 kernels
 % 9/10/21 NH Gap-filled albedo data for missing months
 % 9/8/21 NH Made pathways more general to be able to add/remove some without having to change the
 %           code.
