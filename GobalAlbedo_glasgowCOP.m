@@ -145,7 +145,6 @@ for kk = 1 : nkernels
             kernelfilenames(kk) = "CAM3\CAM3_albedo_sw_kernel.nc";
             kernelvarnames(kk) = "monkernel";
             kernelscale(kk) = 100;
-            cam3i = kk;
         case "CAM5"
             kernelfilenames(kk) = "CAM5\alb.kernel.nc";
             kernelvarnames(kk) = "FSNT";
@@ -218,38 +217,14 @@ regnfCO2e= NaN(blocksize,blocksize,nkernels);
 regfmiss = false(blocksize,blocksize,nmonths,nfrst);
 regnfmiss = false(blocksize,blocksize,nmonths);
 
-% e. For comparison with Chris's work, save Canada values
-lat05 = 90 - latlonscale/2 : -latlonscale : -90 + latlonscale/2;
-lon05 = -180 + latlonscale/2 : latlonscale : 180 - latlonscale/2;
-latmax = 84;   latmin = 41;
-lonmin = -142; lonmax = -52;
-a = find(lat05<=latmax,1,'first'); b = find(lat05>=latmin,1,'last'); cani = a:b; 
-a = find(lon05>=lonmin,1,'first'); b = find(lon05<=lonmax,1,'last'); canj = a:b;
-nlatcan = length(cani);
-nloncan = length(canj);
-CanENF2CRO_CAM3RF = NaN(nlatcan,nloncan,nmonths);
-CanAlbDiffENF2GRA = NaN(nlatcan,nloncan,nmonths);
-CanENF2GRA_CAM3CO2e = NaN(nlatcan,nloncan);
-CanENF2CRO_CAM3CO2e = NaN(nlatcan,nloncan);
-regcanmonths = NaN(blocksize,blocksize,nmonths);
-regcan = NaN(blocksize,blocksize);
-canblocks = false(nblocks,1);
-enfi = pathwayslandcover(:,1) == "ENF";
-cri = pathwayslandcover(:,2) == "CRO";
-gri = pathwayslandcover(:,2) == "GRA";
-canpw1 = find((enfi + cri) == 2);
-canpw2 = find((enfi + gri) == 2);
-
-clear latmax latmin lonmax lonmin a b enfi cri gri plc
-
 
 % 5. Save input variables for later use
 % -------------------------------------
 glodatafname = strcat(rootdir,"AlbedoGeneralData.mat");
 save(glodatafname,'regoutputfiles','boxpath','nblocks','resultslocalfolder','blocksize',...
-    'nblx','nbly','nlon','nlat','nkernels','IGBPBiomes','biomes_igbp','Cao_PgC','Ca_PgC',...
+    'nblx','nbly','nlon','nlat','nkernels','IGBPBiomes','biomes_igbp','Ca_PgC',...
     'nfrst','monthnames','albedo_types','albsn','albid','fillvalue_albedo','scale_albedo','nalb',...
-    'kernels','kernelscale','nbiomes','nmonths','Aglobe','latlonscale','cani','canj',...
+    'kernels','kernelscale','nbiomes','nmonths','Aglobe','latlonscale',...
     'pathways','pwnames','npw','pathwayslandcover','nlcc','pwid');
 
 
@@ -537,23 +512,13 @@ for rr = 1 : nblocks
         'snowcover','directsolar','diffusesolar','diffusefraction',...
         'cam3','cam5','echam6','hadgem2','cack1','hadgem3','pixelarea');
     
-    % h. Check if it includes Canada
-    a = ismember(regi,cani);
-    b = ismember(regj,canj);
-    if sum(a) > 0 && sum(b) > 0
-        canblocks(rr) = true;
-    end
-
     strcat("Done with saving data into subregion ",num2str(rr))
     clear x y regi regj landcoverprop blocklandmask snowcover directsolar ...
          diffusesolar diffusefraction cam3 cam5 echam6 hadgem2
 end
 
-% i. Save only block index for Canada
-canblocks = find(canblocks);
-
-% j. Save global variables
-save(glodatafname,'presland','globalpixelarea','landmask','MisSnow','canblocks','-append');
+% h. Save global variables
+save(glodatafname,'presland','globalpixelarea','landmask','MisSnow','-append');
 
 clear CAM3 CAM5 ECHAM6 HADGEM2 solar_direct_hires solar_diffuse_hires frac_diff_hires ...
     snowcover_all LCP landmask
@@ -686,9 +651,6 @@ for rr = 1 : nblocks
         tllandmask = false(tlsize,tlsize,nbtiles);
         tlpixarea = NaN(tlsize,tlsize,nbtiles);
                 
-        tlcanrf = tilemvars; tlcanad = tilemvars;   % I define these everywhere to avoid warnings
-        tlcangra = NaN(tlsize,tlsize,nbtiles); tlcancro = tlcangra;
-        
         clear tilemvars tilealvar
         
         for tl = 1 : nbtiles
@@ -736,11 +698,6 @@ for rr = 1 : nblocks
             sm_pathwayco2 = NaN(tlsize,tlsize,nkernels,nlcc);
             sm_pathwaymiss = false(tlsize,tlsize,nmonths,nlcc);
             
-            sm_canrf = tlcanrf(:,:,:,tl);
-            sm_canad = tlcanad(:,:,:,tl);
-            sm_cancro = tlcancro(:,:,tl);
-            sm_cangra = tlcangra(:,:,tl);
-        
             [a,b] = find(sm_landmask);
         
         
@@ -789,11 +746,6 @@ for rr = 1 : nblocks
                             ta(m,kk) =  Wda .* sm_kernels(i,j,m,kk) .*kernelscale(kk); %#ok<PFBNS>
                         end
                     
-                        % f. Save albedo difference from ENF to GRA for Canada
-                        if ll == canpw2
-                            sm_canad(i,j,m) = Wda;
-                        end
-                                        
                     end     % end of months loop
                 
                 
@@ -821,16 +773,6 @@ for rr = 1 : nblocks
                     % e. Save values in tile arrays
                     sm_pathwayco2(i,j,:,ll) = CO2eq_TOA;
                 
-                
-                    % 7. Save subsets for Canada (for consistency check with prior work)
-                    % --------------------------
-                    if ll == canpw1
-                        sm_cancro(i,j) = CO2eq_TOA(cam3i) ./ 10 ./ 44/12;
-                    elseif ll == canpw2
-                        sm_canrf(i,j,:) = ta(:,cam3i);                        
-                        sm_cangra(i,j) = CO2eq_TOA(cam3i) ./ 10 ./ 44/12;
-                    end
-                    
                 end     % end loop on all individual pathways
                                 
             end     % end loop on all forested pixels
@@ -840,14 +782,6 @@ for rr = 1 : nblocks
             % ----------------------------------------------
             tileco2e(:,:,:,:,tl) = sm_pathwayco2;
             tilemiss(:,:,:,:,tl) = sm_pathwaymiss;
-            
-            if ismember(rr,canblocks)
-                tlcanrf(:,:,:,tl) = sm_canrf;
-                tlcanad(:,:,:,tl) = sm_canad;
-                tlcancro(:,:,tl) = sm_cancro;
-                tlcangra(:,:,tl) = sm_cangra;
-            end
-
             
             strcat("done with RF/CO2e calculation for subregion ",num2str(rr)," - tile #",...
                 num2str(tl)," (",num2str(length(a))," points)")
@@ -882,14 +816,6 @@ for rr = 1 : nblocks
                 eval(strcat("regco2",lower(pwnames(pp)),"(tli,tlj,:,:) = tileco2e(:,:,:,ii,tl);"));
                 eval(strcat("regmiss",lower(pwnames(pp)),"(tli,tlj,:,:) = tilemiss(:,:,:,ii,tl);"));
             end
-            
-            if ismember(rr,canblocks)
-                canrf(tli,tlj,:) = tlcanrf(:,:,:,tl);
-                canda(tli,tlj,:) = tlcanad(:,:,:,tl);
-                cangra(tli,tlj) = tlcangra(:,:,tl);
-                cancro(tli,tlj) = tlcancro(:,:,tl);
-            end
-            
         end            
         
         
@@ -900,22 +826,6 @@ for rr = 1 : nblocks
             eval(strcat("Miss",pwnames(pp),"(regi,regj,:,:) = regmiss",lower(pwnames(pp)),";"));
         end
 
-%         if ismember(rr,canblocks) == 1
-%             for i = 1 : blocksize
-%                 for j = 1 : blocksize
-%                     if ismember(regi(i),cani) == 1 && ismember(regj(j),canj) == 1
-%                         ci = ismember(cani,regi(i));
-%                         cj = ismember(canj,regj(j));
-%                         CanENF2CRO_CAM3RF(ci,cj,:) = canrf(i,j,:);
-%                         CanAlbDiffENF2GRA(ci,cj,:) = canda(i,j,:);
-%                         CanENF2GRA_CAM3CO2e(ci,cj) =  cangra(i,j);
-%                         CanENF2CRO_CAM3CO2e(ci,cj) = cancro(i,j);
-%                     end
-%                 end
-%             end
-%             save(subdatafname,'canrf','canda','cangra','cancro','-append')            
-%         end
-%         
         regvars = cellstr(cat(1,strcat("regco2",lower(pwnames)),...
             strcat("regmiss",lower(pwnames))));
         save(subdatafname,regvars{:},'-append')
@@ -938,9 +848,6 @@ end
 datafname = strcat(regoutputfiles,"AlbedoFinalData6ker.mat");
 globalvars = cellstr(cat(1,pwnames,strcat("Miss",pwnames)));
 save(datafname,globalvars{:},'-v7.3')
-save(datafname,'CanENF2CRO_CAM3RF','CanAlbDiffENF2GRA',...
-    'CanENF2GRA_CAM3CO2e','CanENF2CRO_CAM3CO2e','-append')
-
 
 
 
