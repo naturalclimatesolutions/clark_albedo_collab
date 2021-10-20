@@ -26,12 +26,14 @@ computer = "GEO-007264";                % where the routine is run (for director
                                         %   GEO-006381 (new supercomputer)
 desiredstatistics = ...                 % list of statistics to be performed
     ["min","max","mean","median","range","standard deviation"];
+thresholds = [0.1,0.25,0.5,1];          % Inclusion threshold: see where each kernels falls within
+                                        %   ensemble mean +/- thresholds
 
 % **********************
 
 
-% 2. Define inpouts
-% -----------------
+% 2. Define inputs
+% ----------------
 switch computer
     case "GEO-007264"
         rootdir = 'C:\Work\GlobalAlbedo\';
@@ -48,14 +50,39 @@ load(glodatafname,'IGBPBiomes','biomes_igbp','latlonscale','nblocks','nlat','nlo
     'nmonths','nkernels','npw','presland','pathwayslandcover','pwnames','pwid','kernels',...
     'regoutputfiles','resultslocalfolder','landmask','blocksize')
 
+regvars = cellstr(cat(1,strcat("regco2",lower(pwnames))));
+kervars = cellstr(lower(kernels));
+nstats = length(desiredstatistics);
+nt = length(thresholds);
+
+statisticsmaps = NaN(nlat,nlon,nstats);
+for pp = 1 : nlcc
+    eval(strcat("CO2Stats.",lower(pathwayslandcover(pp,1)),"2",...
+        lower(pathwayslandcover(pp,2))," = statisticsmaps;"));
+end
+kermonthlystat = NaN(nlat,nlon,nmonths,nstats);
+kerannualmeanstat = NaN(nlat,nlon,nstats);
+kerallmonthstat = NaN(nlat,nlon,nstats);
+kermonthlysdeviations = false(nlat,nlon,nmonths,nt,nkernels);
+kerinsidestd = false(nlat,nlon,nmonths,nkernels);
+
+expectedstat = ["min","max","mean","median","range","standard deviation"];
+for ss = 1 : nstats
+    stat = desiredstatistics(ss);
+    if ismember(stat,["min","max","mean","median","range","standard deviation"]) == false
+        error(strcat("Your desired statistic '",stat,"' does not belong to the expected list: ",...
+            join(expectedstat,", "),". Check spelling or add code if new statistic is desired!"));
+    end
+end
+clear expectedstat ss stat
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% B. Compute TOA RF and CO2e of land conversion scenarios
-% ********************************************************
+%% B. Compute statistics on different kernel outcomes
+% ***************************************************
 
-% 1. Loop through sub-regions
+% 1. Loop through sub-regions (and get/rearrange input data)
 % ---------------------------
 tilediv = 4;
 tlsize = blocksize / tilediv;
@@ -64,48 +91,49 @@ nbtiles = tilediv * tilediv;
 for rr = 1 : nblocks
     if presland(rr) == true
         subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
-        load(subdatafname);
+        load(subdatafname,regvars{:},kervars{:},'blocklandmask','regi','regj');
         
+        smallkernels = NaN(blocksize,blocksize,nmonths,nkernels);
+        regco2 = NaN(blocksize,blocksize,nkernels,nlcc);
+        for kk = 1 : nkernels
+        	eval(strcat("smallkernels(:,:,:,kk) = ",lower(kernels(kk))," .* kernelscale(kk);"));
+        end
+        for pp = 1 : npw
+            ii = pwid == pp;
+            eval(strcat("regco2(:,:,:,ii) = regco2",lower(pwnames(pp)),";"));
+        end
+        
+        regstats = NaN(blocksize,blocksize,nstats,nlcc);
+        kmstat = NaN(blocksize,blocksize,nmonths,nstats);
+        kanmestat = NaN(blocksize,blocksize,nstats);
+        kalmostat = NaN(blocksize,blocksize,nstats);
+        kerdev = false(blocksize,blocksize,nmonths,nt,nkernels);
+        kerinstd = false(blocksize,blocksize,nmonths,nkernels);
+
         
         % 2. Sub-divide region in smaller tiles for use in parfor loop
         % ------------------------------------------------------------
-        tilemvars = NaN(tlsize,tlsize,nmonths,nbtiles);
-        tilealvar = NaN(tlsize,tlsize,nmonths,nbiomes,nbtiles);
         tileco2e = NaN(tlsize,tlsize,nkernels,nlcc,nbtiles);
-        tilemiss = false(tlsize,tlsize,nmonths,nlcc,nbtiles);
-        
-        tlnsbs = tilealvar; tlnsws = tilealvar; tlscbs = tilealvar; tlscws = tilealvar;
-        tlsnowcover = tilemvars; tldiffrac = tilemvars;
-        
-        tlkernels = NaN(tlsize,tlsize,nmonths,nkernels,nbtiles);
-        tllandmask = false(tlsize,tlsize,nbtiles);
-        tlpixarea = NaN(tlsize,tlsize,nbtiles);
+        tilekernels = NaN(tlsize,tlsize,nmonths,nkernels,nbtiles);
+        tileco2stat = NaN(tlsize,tlsize,nstats,nlcc,nbtiles);
+        tilekmstat = NaN(tlsize,tlsize,nmonths,nstats,nbtiles);
+        tilekeranmestat = NaN(tlsize,tlsize,nstats,nbtiles);
+        tilekeralmostat = NaN(tlsize,tlsize,nstats,nbtiles);
+        tilekerdev = false(tlsize,tlsize,nmonths,nt,nkernels,nbtiles);
+        tilekerinstd = false(tlsize,tlsize,nmonths,nkernels,nbtiles);
+        tilelandmask = false(tlsize,tlsize,nbtiles);
                 
-        clear tilemvars tilealvar
-        
         for tl = 1 : nbtiles
             y = ceil(tl/tilediv);
             x = tl - (y-1)*tilediv;
             tlj = (x-1)*tlsize + 1 : x * tlsize;
             tli = (y-1)*tlsize + 1 : y * tlsize;
             
-            tlnsbs(:,:,:,:,tl) = nosnowblacksky(tli,tlj,:,:);
-            tlnsws(:,:,:,:,tl) = nosnowwhitesky(tli,tlj,:,:);
-            tlscbs(:,:,:,:,tl) = snowcovblacksky(tli,tlj,:,:);
-            tlscws(:,:,:,:,tl) = snowcovwhitesky(tli,tlj,:,:);
+            tileco2e(:,:,:,:,tl) = regco2(tli,tlj,:,:);
+            tilekernels(:,:,:,:,tl) = smallkernels(tli,tlj,:,:);
+            tilelandmask(:,:,tl) = blocklandmask(tli,tlj);
             
-            tlsnowcover(:,:,:,tl) = snowcover(tli,tlj,:);
-            tldiffrac(:,:,:,tl) = diffusefraction(tli,tlj,:);
-            
-            tllandmask(:,:,tl) = blocklandmask(tli,tlj);
-            tlpixarea(:,:,tl) = pixelarea(tli,tlj);
-            
-            for kk = 1 : nkernels
-                eval(strcat("kern = ",lower(kernels(kk)),";"))
-                tlkernels(:,:,:,kk,tl) = kern(tli,tlj,:);
-            end
-            
-            clear x y tli tlj kk
+            clear x y tli tlj
         end
 
         
@@ -113,169 +141,195 @@ for rr = 1 : nblocks
         % ---------------------------------------------------------
         parfor tl = 1 : nbtiles
             
-            sm_nosnow_blacksky = tlnsbs(:,:,:,:,tl);
-            sm_nosnow_whitesky = tlnsws(:,:,:,:,tl);
-            sm_snowcov_blacksky = tlscbs(:,:,:,:,tl);
-            sm_snowcov_whitesky = tlscws(:,:,:,:,tl);
-            
-            sm_snowcover = tlsnowcover(:,:,:,tl);
-            sm_diffuse_fraction = tldiffrac(:,:,:,tl);
-            sm_kernels = tlkernels(:,:,:,:,tl);
-            
-            sm_landmask = tllandmask(:,:,tl);
-            sm_pixelarea = tlpixarea(:,:,tl);
-            
-            sm_pathwayco2 = NaN(tlsize,tlsize,nkernels,nlcc);
-            sm_pathwaymiss = false(tlsize,tlsize,nmonths,nlcc);
+            sm_co2 = tileco2e(:,:,:,:,tl);
+            sm_kernels = tilekernels(:,:,:,:,tl);
+            sm_co2stat = tileco2stat(:,:,:,:,tl);
+            sm_kermostat = tilekmstat(:,:,:,:,tl);
+            sm_keranmeanstat = tilekeranmestat(:,:,:,tl);
+            sm_kerallmonthstat = tilekeralmostat(:,:,:,tl);
+            sm_kerdev = tilekerdev(:,:,:,:,:,tl);
+            sm_kerinstd = tilekerinstd(:,:,:,:,tl);
+            sm_landmask = tilelandmask(:,:,tl);
             
             [a,b] = find(sm_landmask);
+            
         
-        
-            % 4. Loop through land pixels/pathways and calculate monthly radiative forcings
-            % -----------------------------------------------------------------------------
+            % 4. Loop through land pixels and calculate statistics
+            % ----------------------------------------------------
             for pt = 1 : length(a)
                 i = a(pt);
                 j = b(pt);
                 
-                % a. Loop through individual pathways
-                for ll = 1 : nlcc
-                    lc1 = biomes_igbp == pathwayslandcover(ll,1); %#ok<PFBNS>
-                    lc2 = biomes_igbp == pathwayslandcover(ll,2);
-                    ta = zeros(nmonths,nkernels);
+                co2 = NaN(nstats,nlcc);
+                kermonth = NaN(nmonths,nstats);
+                kerannualmean = NaN(1,nstats);
+                kerallmonth = NaN(1,nstats);
+                
+                kernannualmean = mean(sm_kernels(i,j,:,:),3,'omitnan');
+                
+                for ss = 1 : nstats
+                    stat = desiredstatistics(ss); %#ok<PFBNS>
+                    switch stat
+                        case "min"
+                            co2(ss,:) = min(sm_co2(i,j,:,:),[],3,'omitnan');
+                            kermonth(:,ss) = min(sm_kernels(i,j,:,:),[],4,'omitnan');
+                            kerannualmean(ss) = min(kernannualmean,[],4,'omitnan');
+                            kerallmonth(ss) = min(sm_kernels(i,j,:,:),[],'all','omitnan');
+                        case "max"
+                            co2(ss,:) = max(sm_co2(i,j,:,:),[],3,'omitnan');
+                            kermonth(:,ss) = max(sm_kernels(i,j,:,:),[],4,'omitnan');
+                            kerannualmean(ss) = max(kernannualmean,[],4,'omitnan');
+                            kerallmonth(ss) = max(sm_kernels(i,j,:,:),[],'all','omitnan');                                                   
+                        case "median"
+                            co2(ss,:) = median(sm_co2(i,j,:,:),3,'omitnan');
+                            kermonth(:,ss) = median(sm_kernels(i,j,:,:),4,'omitnan');
+                            kerannualmean(ss) = median(kernannualmean,4,'omitnan');
+                            kerallmonth(ss) = median(sm_kernels(i,j,:,:),'all','omitnan');
+                        case "mean"
+                            co2(ss,:) = mean(sm_co2(i,j,:,:),3,'omitnan');
+                            kermonth(:,ss) = mean(sm_kernels(i,j,:,:),4,'omitnan');
+                            kerannualmean(ss) = mean(kernannualmean,4,'omitnan');
+                            kerallmonth(ss) = mean(sm_kernels(i,j,:,:),'all','omitnan');
+                        case "standard deviation"
+                            co2(ss,:) = std(sm_co2(i,j,:,:),0,3,'omitnan');
+                            kermonth(:,ss) = std(sm_kernels(i,j,:,:),0,4,'omitnan');
+                            kerannualmean(ss) = std(kernannualmean,0,4,'omitnan');
+                            kerallmonth(ss) = std(sm_kernels(i,j,:,:),0,'all','omitnan');
+                        case "range"
+                            co2(ss,:) = range(sm_co2(i,j,:,:),3);
+                            kermonth(:,ss) = range(sm_kernels(i,j,:,:),4);
+                            kerannualmean(ss) = range(kernannualmean,4);
+                            kerallmonth(ss) = range(sm_kernels(i,j,:,:),'all');                           
+                    end
+                end
+                
+                sm_co2stat(i,j,:,:) = co2;
+                sm_kermostat(i,j,:,:) = kermonth;
+                sm_keranmeanstat(i,j,:) = kerannualmean;
+                sm_kerallmonthstat(i,j,:) = kerallmonth;
+                
+                imean = desiredstatistics == "mean";
+                istd = desiredstatistics == "standard deviation";
+                for kk = 1 : nkernels
+                    dev = abs(squeeze(sm_kernels(i,j,:,kk)) - kermonth(:,imean));
                     
-                    % b. Loop through months                               
                     for m = 1 : nmonths
-                    
-                        % c. Calculate surface albedo differences
-                        daNSBS = sm_nosnow_blacksky(i,j,m,lc1) - sm_nosnow_blacksky(i,j,m,lc2);
-                        daNSWS = sm_nosnow_whitesky(i,j,m,lc1) - sm_nosnow_whitesky(i,j,m,lc2);
-                        daSCBS = sm_snowcov_blacksky(i,j,m,lc1) - sm_snowcov_blacksky(i,j,m,lc2);
-                        daSCWS = sm_snowcov_whitesky(i,j,m,lc1) - sm_snowcov_whitesky(i,j,m,lc2);
-
-                        % d. Calculate monthly Surface Weighted Albedo Differences
-                        %    (to avoid NaN values due to undefined albedos in irrelevant situations,
-                        %     I add a cumbersome if statement ... now that we filled these, it
-                        %     should not be necessary, but I left it as is)
-                        snow = sm_snowcover(i,j,m);
-                        if snow == 0
-                            Wda = squeeze(daNSBS .* (1 - sm_diffuse_fraction(i,j,m)) + ...
-                                daNSWS .* sm_diffuse_fraction(i,j,m));
-                        elseif snow == 1
-                            Wda = squeeze(daSCBS .* (1 - sm_diffuse_fraction(i,j,m)) + ...
-                                daSCWS .* sm_diffuse_fraction(i,j,m));
-                        else
-                            Wda = squeeze(...
-                                daNSBS .* (1 - snow) .* (1 - sm_diffuse_fraction(i,j,m)) + ...
-                                daNSWS .* (1 - snow) .* sm_diffuse_fraction(i,j,m) + ...
-                                daSCBS .* snow .* (1 - sm_diffuse_fraction(i,j,m)) + ...
-                                daSCWS .* snow .* sm_diffuse_fraction(i,j,m));
+                        ii = find(thresholds*100 > dev(m),1,'first');
+                        sm_kerdev(i,j,m,ii,kk) = true;
+                        if dev(m) <= kermonth(m,istd)
+                            sm_kerinstd(i,j,m,kk) = true;
                         end
-                                        
-                        % e. Compute monthly TOA RF in [W m-2]
-                        for kk = 1 : nkernels
-                            ta(m,kk) =  Wda .* sm_kernels(i,j,m,kk) .*kernelscale(kk); %#ok<PFBNS>
-                        end
-                    
-                    end     % end of months loop
+                    end
+                end
                 
-                
-                    % 5. Save missing values for quality control/improvements
-                    % -------------------------------------------------------
-                    %    (Kernels don't have missing values, so I can ignore that dimension)
-                    sm_pathwaymiss(i,j,:,ll) = isnan(squeeze(ta(:,1)));
-                
-                
-                    % 6. Calculate CO2 equivalent
-                    % ---------------------------
-                    % a. Annual mean RF
-                    arf = squeeze(mean(ta,1,'omitnan'));
-                    
-                    % b. Global annual mean RF
-                    glob = arf .* sm_pixelarea(i,j) ./ Aglobe;
-                
-                    % c. CO2e (Pg C)
-                    %    (also, flip sign for ease of read)
-                    PgC_TOA = Ca_PgC .* exp(-1 .* glob ./ 5.35);
-                                    
-                    % d. in tonnes CO2 ha-2
-                    CO2eq_TOA = (PgC_TOA - Ca_PgC) .* 1e13 ./ sm_pixelarea(i,j) .* 44/12;
-                
-                    % e. Save values in tile arrays
-                    sm_pathwayco2(i,j,:,ll) = CO2eq_TOA;
-                
-                end     % end loop on all individual pathways
-                                
-            end     % end loop on all forested pixels
+            end     % end loop on land pixels
             
             
-            % 8. Save tile results back into regional arrays
+            % 5. Save tile results back into regional arrays
             % ----------------------------------------------
-            tileco2e(:,:,:,:,tl) = sm_pathwayco2;
-            tilemiss(:,:,:,:,tl) = sm_pathwaymiss;
+            tileco2stat(:,:,:,:,tl) = sm_co2stat;
+            tilekmstat(:,:,:,:,tl) = sm_kermostat;
+            tilekeranmestat(:,:,:,tl) = sm_keranmeanstat;
+            tilekeralmostat(:,:,:,tl) = sm_kerallmonthstat;
+            tilekerdev(:,:,:,:,:,tl) = sm_kerdev;
+            tilekerinstd(:,:,:,:,tl) = sm_kerinstd;
             
-            strcat("done with RF/CO2e calculation for subregion ",num2str(rr)," - tile #",...
+            strcat("done statistics calculation for subregion ",num2str(rr)," - tile #",...
                 num2str(tl)," (",num2str(length(a))," points)")
 
         end     % end parfor on tiles
         
         
-        % 9. Recombine tiles into one regional arrays
+        % 6. Recombine tiles into one regional arrays
         % -------------------------------------------        
-        for pp = 1 : npw
-            if sum(pwid==pp) == nfrst
-                eval(strcat("regco2",lower(pwnames(pp))," = regfCO2e;"));
-                eval(strcat("regmiss",lower(pwnames(pp))," = regfmiss;"));
-            else
-                eval(strcat("regco2",lower(pwnames(pp))," = regnfCO2e;"));
-                eval(strcat("regmiss",lower(pwnames(pp))," = regnfmiss;"));
-            end
-        end
-        
-        if ismember(rr,canblocks)
-            canrf = regcanmonths; canda = regcanmonths; cangra = regcan; cancro = regcan;
-        end
-
         for tl = 1 : nbtiles
             y = ceil(tl/tilediv);
             x = tl - (y-1)*tilediv;
             tlj = (x-1)*tlsize + 1 : x * tlsize;
             tli = (y-1)*tlsize + 1 : y * tlsize;
             
-            for pp = 1 : npw
-                ii = pwid == pp;
-                eval(strcat("regco2",lower(pwnames(pp)),"(tli,tlj,:,:) = tileco2e(:,:,:,ii,tl);"));
-                eval(strcat("regmiss",lower(pwnames(pp)),"(tli,tlj,:,:) = tilemiss(:,:,:,ii,tl);"));
-            end
-        end            
-        
-        
-        % 10. Save values in global arrays
-        % --------------------------------
-        for pp = 1 : npw
-            eval(strcat(pwnames(pp),"(regi,regj,:,:) = regco2",lower(pwnames(pp)),";"));
-            eval(strcat("Miss",pwnames(pp),"(regi,regj,:,:) = regmiss",lower(pwnames(pp)),";"));
+            regstats(tli,tlj,:,:) = tileco2stat(:,:,:,:,tl);
+            kmstat(tli,tlj,:,:) = tilekmstat(:,:,:,:,tl);
+            kanmestat(tli,tlj,:) = tilekeranmestat(:,:,:,tl);
+            kalmostat(tli,tlj,:) = tilekeralmostat(:,:,:,tl);
+            kerdev(tli,tlj,:,:,:) = tilekerdev(:,:,:,:,:,tl);
+            kerinstd(tli,tlj,:,:) = tilekerinstd(:,:,:,:,tl);
+                        
+            clear x y tli tlj
         end
-
-        regvars = cellstr(cat(1,strcat("regco2",lower(pwnames)),...
-            strcat("regmiss",lower(pwnames))));
-        save(subdatafname,regvars{:},'-append')
         
-        strcat("done with RF/CO2e calculation for subregion ",num2str(rr),...
+        
+        % 7. Save values in global arrays
+        % -------------------------------
+        for pp = 1 : nlcc
+            eval(strcat("CO2Stats.",lower(pathwayslandcover(pp,1)),"2",...
+                lower(pathwayslandcover(pp,2)),"(regi,regj,:) = regstats(:,:,:,pp);"));
+        end
+        
+        kermonthlystat(regi,regj,:,:) = kmstat;
+        kerannualmeanstat(regi,regj,:) = kanmestat;
+        kerallmonthstat(regi,regj,:) = kalmostat;
+        kermonthlysdeviations(regi,regj,:,:,:) = kerdev;
+        kerinsidestd(regi,regj,:,:) = kerinstd;
+        
+        statsubdatafname = strcat(regoutputfiles,"StatsSubData_",num2str(rr),".mat");
+        save(statsubdatafname,'regstats','kermonthlystat','kerannualmeanstat','kerallmonthstat',...
+            'kermonthlysdeviations','kerinsidestd','desiredstatistics','kernels','pathwayslandcover');
+                    
+        strcat("done with statistics calculation for subregion ",num2str(rr),...
             " (",num2str(sum(blocklandmask,'all'))," points)")
         
-        clear(regvars{:})
-        clear nosnowblacksky nosnowwhitesky snowcovblacksky snowcovwhitesky ...
-            x y regi regj landcoverprop blocklandmask snowcover directsolar ...
-            diffusesolar diffusefraction cam3 cam5 echam6 hadgem2 ...
-            canrf canda cangra cancro tlnsbs tlnsws tlscbs tlscws tlsnowcover tldiffrac ...
-            tlkernels tllandmask tlpixarea tileco2e tilemiss ...
-            tlcanrf tlcanad tlcangra tlcancro
 
-        
+        clear(regvars{:},kervars{:},'blocklandmask','regi','regj')
+        clear smallkernels regco2 regstats kmstat kanmestat kalmostat kerdev kerinstd...
+            tileco2e tilekernels tileco2stat tilekmstat tilekeranmestat tilekeralmostat ...
+            tilekerdev tilekerinstd tilelandmask x y tli tlj tl regi regj pp
+               
     end     % end if region has land data
 end
-        
-datafname = strcat(regoutputfiles,"AlbedoFinalData6ker.mat");
-globalvars = cellstr(cat(1,pwnames,strcat("Miss",pwnames)));
-save(datafname,globalvars{:},'-v7.3')
+
+
+% 8. Save global data in file
+% ---------------------------
+KernelStats.Monthly = kermonthlystat;
+KernelStats.Annual = kerannualmeanstat;
+KernelStats.AllMonths = kerallmonthstat;
+KernelStats.Deviation.Std = kerinsidestd;
+KernelStats.Deviation.Thresholds = kermonthlysdeviations;
+datafname = strcat(regoutputfiles,"KernelStatistics.mat");
+save(datafname,'KernelStats','CO2Stats','-v7.3')
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% C. Print results
+% *****************
+
+% 1. Export data in geotiff files
+% -------------------------------
+lat05 = 90 - latlonscale/2 : -latlonscale : -90 + latlonscale/2;
+lon05 = -180 + latlonscale/2 : latlonscale : 180 - latlonscale/2;
+[~,lats] = meshgrid(lon05,lat05);
+latA = -60;
+Antarctica = lats <= latA;
+
+bbox = [-180,-90;180,90];
+
+for ll = 1 : nlcc
+    ppi = pathwayslandcover(ll,3);
+    pname = pwnames(ppi);
+    for ss = 1 : nstats
+        statname = desiredstatistics(ss);
+        eval(strcat("data = CO2Stats.",lower(pathwayslandcover(ll,1)),"2",...
+            lower(pathwayslandcover(ll,2)),"(:,:,ss);"))
+        data(Antarctica) = NaN; %#ok<SAGROW>
+        data(landmask==0) = NaN; %#ok<SAGROW> % just in case
+        fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(ll,1),"2",...
+            pathwayslandcover(ll,2),"_",statname,".tif");
+        geotiffwrite_easy(fname,bbox,data);
+    end
+end
+clear pname ii ll z data fname
+
 
