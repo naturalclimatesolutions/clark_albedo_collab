@@ -801,10 +801,6 @@ for rr = 1 : nblocks
             end
         end
         
-        if ismember(rr,canblocks)
-            canrf = regcanmonths; canda = regcanmonths; cangra = regcan; cancro = regcan;
-        end
-
         for tl = 1 : nbtiles
             y = ceil(tl/tilediv);
             x = tl - (y-1)*tilediv;
