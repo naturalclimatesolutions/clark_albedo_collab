@@ -281,19 +281,26 @@ end
 
 % 1. Recombine maps
 % -----------------
+mapnames = strings(nlcc,1);
 for ll = 1 : nlcc
     map = statisticsmaps;
     
     for rr = 1 : nblocks
         if presland(rr) == true
-            subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
-            load(subdatafname,'regstats','regi','regj');
+            osfname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+            load(osfname,'regi','regj');
+            subdatafname = strcat(regoutputfiles,"StatsSubData_",num2str(rr),".mat");
+            load(subdatafname,'regstats');
             map(regi,regj,:) = regstats(:,:,:,ll);            
         end
     end
-    eval(strcat(lower(pathwayslandcover(ll,1)),"2",lower(pathwayslandcover(ll,2))," = map;"))
+    mapnames(ll) = strcat(lower(pathwayslandcover(ll,1)),"2",lower(pathwayslandcover(ll,2)));
+    eval(strcat(mapnames(ll)," = map;"))
 end
-    
+finstafname = strcat(resultslocalfolder,"StatsData.mat");
+varnames = cellstr(mapnames);
+save(finstafname,mapnames{:},'desiredstatistics','kernels','-v7.3')
+
 
 % 2. Export CO2e data in geotiff files
 % ------------------------------------
@@ -309,27 +316,48 @@ bbox = [-180,-90;180,90];
 
 for ll = 1 : nlcc
     ppi = pathwayslandcover(ll,3);
-    pname = pwnames(ppi);
+    pname = pwnames(str2double(ppi));
     for ss = 1 : nstats
         statname = statnames(ss);
-        eval(strcat("data = ",lower(pathwayslandcover(ll,1)),"2",...
-            lower(pathwayslandcover(ll,2)),"(:,:,ss);"))
+        eval(strcat("data = ",mapnames(ll),"(:,:,ss);"))
         data(Antarctica) = NaN; %#ok<SAGROW>
         data(landmask==0) = NaN; %#ok<SAGROW> % just in case
-        fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(ll,1),"2",...
-            pathwayslandcover(ll,2),"_",statname,".tif");
+        fname = strcat(resultslocalfolder,pname,"\",upper(mapnames(ll)),"_",statname,".tif");
         geotiffwrite_easy(fname,bbox,data);
     end
 end
 clear pname ii ll z data fname
+clear(varnames{:})
 
 
-% 2. Print figures for statistics on kernels
+% 3. Print figures for statistics on kernels
 % ------------------------------------------
-load coast
+% a. build variables
+annualstat = NaN(nlat,nlon,nstats);
+monthlystat = NaN(nlat,nlon,nmonths,nstats);
+for rr = 1 : nblocks
+    if presland(rr) == true
+        osfname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+        load(osfname,'regi','regj');
+        subdatafname = strcat(regoutputfiles,"StatsSubData_",num2str(rr),".mat");
+        load(subdatafname,'kmstat','kanmestat');
+        annualstat(regi,regj,:) = kanmestat;
+        monthlystat(regi,regj,:,:) = kmstat;
+    end
+end
+
+% b. Get coastines (file and variable names changed with Matlab R2021)
+vv = str2double(erase(extract(version,"R" + digitsPattern(4)),"R"));
+if vv > 2020
+    load coastlines
+else
+    load coast
+    coastlat = lat;
+    coastlon = long;
+end
 hotmap = flipud(colormap(hot));
 
-% a. Statistics on annual means
+% b. Statistics on annual means
 for ss = 1 : nstats
     statname = statnames(ss);
     
@@ -338,7 +366,7 @@ for ss = 1 : nstats
     h.Units = 'pixels';
     h.Position = [1,31,2560,1333];
     axesm('MapProjection','robinson','Frame','on','MeridianLabel','on','ParallelLabel','on');
-    nmap = KernelStats.Annual(:,:,ss) ./ 100;
+    nmap = annualstat(:,:,ss) ./ 100;
     pcolorm(lats,lons,nmap)
     ti = min(nmap,[],'all');
     ta = max(nmap,[],'all');
@@ -366,7 +394,7 @@ for ss = 1 : nstats
 end
 
 
-% b. Statistics on monthly values
+% c. Statistics on monthly values
 for ss = 1 : nstats
     statname = statnames(ss);
     
@@ -376,7 +404,7 @@ for ss = 1 : nstats
         h.Units = 'pixels';
         h.Position = [1,31,2560,1333];
         axesm('MapProjection','robinson','Frame','on','MeridianLabel','on','ParallelLabel','on');
-        nmap = KernelStats.Montly(:,:,m,ss) ./ 100;
+        nmap = monthlystat(:,:,m,ss) ./ 100;
         pcolorm(lats,lons,nmap)
         ti = min(nmap,[],'all');
         ta = max(nmap,[],'all');
@@ -389,61 +417,25 @@ for ss = 1 : nstats
                 colormap(hotmap)
                 caxis([0 round(ta/.5)*.5])
             end
-            c.Label.String = strcat(statname," Radiative forcing [W m^-^2] / 0.01 \Delta\alpha");
+            c.Label.String = strcat(statname," RF [W m^-^2] / 0.01 \Delta\alpha");
             c.FontSize = 38;
         end
         ax = gca;
         ax.Title.FontSize = 50;
         ax.Title.String = strcat("Kernels - monthly ",statname," - ",monthln(m));
-        plotm(lat,long,'Color','Black')
-        fname = strcat(resultslocalfolder,"Figures\Kernels\KernelMonthlyStats_",statname,".",monthln(m));
+        plotm(coastlat,coastlon,'Color','Black')
+        fname = strcat(resultslocalfolder,"Figures\Kernels\KernelMonthlyStats_",...
+            statname,".",monthln(m));
         print(strcat(fname,".jpg"),"-djpeg")
     end
     
 end
 
 
+% 4. Table of Kernel "outliers"
+% ----------------------------
 
 
 
 
-
-
-
-
-
-
-for pp = 1 : nlcc
-    eval(strcat("CO2Stats.",lower(pathwayslandcover(pp,1)),"2",...
-        lower(pathwayslandcover(pp,2))," = statisticsmaps;"));
-end
-kermonthlystat = NaN(nlat,nlon,nmonths,nstats);
-kerannualmeanstat = NaN(nlat,nlon,nstats);
-kerallmonthstat = NaN(nlat,nlon,nstats);
-kermonthlysdeviations = false(nlat,nlon,nmonths,nt,nkernels);
-kerinsidestd = false(nlat,nlon,nmonths,nkernels);
-        
-        % 7. Save values in global arrays
-        % -------------------------------
-        for pp = 1 : nlcc
-            eval(strcat("CO2Stats.",lower(pathwayslandcover(pp,1)),"2",...
-                lower(pathwayslandcover(pp,2)),"(regi,regj,:) = regstats(:,:,:,pp);"));
-        end
-        
-        kermonthlystat(regi,regj,:,:) = kmstat;
-        kerannualmeanstat(regi,regj,:) = kanmestat;
-        kerallmonthstat(regi,regj,:) = kalmostat;
-        kermonthlysdeviations(regi,regj,:,:,:) = kerdev;
-        kerinsidestd(regi,regj,:,:) = kerinstd;
-        
-
-
-% 8. Save global data in file
-% ---------------------------
-KernelStats.Monthly = kermonthlystat;
-KernelStats.Annual = kerannualmeanstat;
-KernelStats.AllMonths = kerallmonthstat;
-KernelStats.Deviation.Std = kerinsidestd;
-KernelStats.Deviation.Thresholds = kermonthlysdeviations;
-datafname = strcat(regoutputfiles,"KernelStatistics.mat");
-save(datafname,'KernelStats','CO2Stats','-v7.3')
+% Chad Greene (2021). landmask (https://www.mathworks.com/matlabcentral/fileexchange/48661-landmask), MATLAB Central File Exchange. Retrieved October 21, 2021.
