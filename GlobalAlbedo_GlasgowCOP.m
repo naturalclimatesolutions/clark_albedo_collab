@@ -3,8 +3,9 @@
 % This code is used to produce data for the Glasgow COP meeting 2021, as a first estimate of albedo
 %   offsets due to land cover change. Used data are MODIS/Terra for land-cover mask (we define  
 %   values everywhere, independent of plausible presence of the studied land cover),
-%   the Gao et al. 2014 albedo catalog, the present-day snow cover (from MODIS), and the CAM3, CAM5,
-%   ECHAM6, HADGEM2, HADGEM3 and CACKv1.0 radiative kernels. Those are all "hard-coded".
+%   the Gao et al. 2014 albedo catalog, the present-day snow cover (from MODIS), the direct/diffuse
+%   radiation data from NCAR-NCEP reanalysis data, and the CAM3, CAM5, ECHAM6, HADGEM2, HADGEM3 
+%   and CACKv1.0 radiative kernels. Those are all "hard-coded".
 %
 % Note: Some kernels do not specify if lat/lon coordinate correspond to the center of the pixel or
 %       the western/southern boundary. I assumed they are the center points.
@@ -29,7 +30,8 @@
 %       https://swiftbrowser.dkrz.de/public/dkrz_0c07783a-0bdc-4d5e-9f3b-c1b86fac060d/Radiative_kernels/
 %   HadGEM2 – Smith, C. J.: HadGEM2 radiative kernels, edited, University of Leeds.
 %       https://archive.researchdata.leeds.ac.uk/382/
-%   HadGEM3 – Smith, C. J.: HadGEM3-GA7.1 radiative kernels - https://doi.org/10.5281/zenodo.3594673   
+%   HadGEM3 – Smith, C. J.: HadGEM3-GA7.1 radiative kernels - https://doi.org/10.5281/zenodo.3594673
+%   NCAR-NCEP Reanalysis for solar radiation
 %
 % Created 6/30/2021 by Natalia Hasler, Clark University
 
