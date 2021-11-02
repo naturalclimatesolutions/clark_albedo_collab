@@ -6,8 +6,6 @@
 %
 % Created 10/19/2021 by Natalia Hasler, Clark University
 
-% Last modified: NH 10/21/2021
-
 
 clearvars
 
@@ -21,7 +19,7 @@ clearvars
 % 1. User-Defines variables
 % -------------------------
 
-computer = "GEO-007264";                % where the routine is run (for directory paths):
+computer = "GEO-005199";                % where the routine is run (for directory paths):
                                         %   GEO-007264 (my laptop)
                                         %   GEO-005199 (old supercomputer)
                                         %   GEO-006381 (new supercomputer)
@@ -38,12 +36,8 @@ thresholds = [0.1,0.25,0.5,1];          % Inclusion threshold: see where each ke
 switch computer
     case "GEO-007264"
         rootdir = 'C:\Work\GlobalAlbedo\';
-        mapdir = strcat('G:\GlobalAlbedo\');
-        resultdir = rootdir;
     otherwise
         rootdir = 'D:\NCS-GlobalAlbedo\FilledAlbedo\';
-        mapdir = strcat('G:\TNC\GlobalAlbedo\');
-        resultdir = 'E:\NCS-GlobalAlbedo\';
 end
 
 glodatafname = strcat(rootdir,"AlbedoGeneralData.mat");
@@ -59,7 +53,7 @@ kervars = cellstr(lower(kernels));
 nstats = length(desiredstatistics);
 nt = length(thresholds);
 
-statisticsmaps = NaN(nlon,nlat,nstats);
+statisticsmaps = NaN(nlat,nlon,nstats);
 
 expectedstat = ["min","max","mean","median","range","standard deviation"];
 for ss = 1 : nstats
@@ -98,6 +92,7 @@ for rr = 1 : nblocks
         for pp = 1 : npw
             ii = pwid == pp; %#ok<NASGU>
             eval(strcat("regco2(:,:,:,ii) = regco2",lower(pwnames(pp)),";"));
+            
         end
         
         regstats = NaN(blocksize,blocksize,nstats,nlcc);
@@ -273,7 +268,6 @@ end
 
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% C. Print results
@@ -298,7 +292,6 @@ for ll = 1 : nlcc
     eval(strcat(mapnames(ll)," = map;"))
 end
 finstafname = strcat(resultslocalfolder,"StatsData.mat");
-varnames = cellstr(mapnames);
 save(finstafname,mapnames{:},'desiredstatistics','kernels','-v7.3')
 
 
@@ -312,7 +305,9 @@ Antarctica = lats <= latA;
 
 statnames = replace(desiredstatistics," ","_");
 
-bbox = [-180,-90;180,90];
+R = georasterref('RasterSize',[nlat,nlon],'RasterInterpretation','cells','ColumnsStartFrom',...
+    'north','LatitudeLimits',[-90,90],'LongitudeLimits',[-180,180]);
+cmptag.Compression = 'LZW';             % LZW compression is better than the default ...    
 
 for ll = 1 : nlcc
     ppi = pathwayslandcover(ll,3);
@@ -323,11 +318,11 @@ for ll = 1 : nlcc
         data(Antarctica) = NaN; %#ok<SAGROW>
         data(landmask==0) = NaN; %#ok<SAGROW> % just in case
         fname = strcat(resultslocalfolder,pname,"\",upper(mapnames(ll)),"_",statname,".tif");
-        geotiffwrite_easy(fname,bbox,data);
+        geotiffwrite(fname,data,R,'TiffTags',cmptag);
     end
 end
 clear pname ii ll z data fname
-clear(varnames{:})
+clear(mapnames{:})
 
 
 % 3. Print figures for statistics on kernels

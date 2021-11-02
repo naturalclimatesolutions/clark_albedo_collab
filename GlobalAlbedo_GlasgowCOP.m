@@ -1,23 +1,39 @@
 % NCS - Global Albedo - TNC-Clark Collaboration - Glasgow COP results
 %
-% This code is used to produce data for the Glasgow COP meeting, as a first estimate of albedo
+% This code is used to produce data for the Glasgow COP meeting 2021, as a first estimate of albedo
 %   offsets due to land cover change. Used data are MODIS/Terra for land-cover mask (we define  
 %   values everywhere, independent of plausible presence of the studied land cover),
-%   the Gao et al. 2014 albedo catalog, the present-day snow cover (from MODIS), and the CAM3 
-%   (Shell et al. 2008) CAM5, ECHAM6 and HADGEM2 radiative kernels. Those are all "hard-coded".
+%   the Gao et al. 2014 albedo catalog, the present-day snow cover (from MODIS), the direct/diffuse
+%   radiation data from NCAR-NCEP reanalysis data, and the CAM3, CAM5, ECHAM6, HADGEM2, HADGEM3 
+%   and CACKv1.0 radiative kernels. Those are all "hard-coded".
 %
-% Note: Kernels do not specify if lat/lon coordinate correspond to the center of the pixel or the
-%       western/southern boundary. I assumed they are the center points.
+% Note: Some kernels do not specify if lat/lon coordinate correspond to the center of the pixel or
+%       the western/southern boundary. I assumed they are the center points.
 % Note: For any land pixel in MODIS/Terra (at least 1% non-water), we calculate albedo impact of any
 %       land cover conversion regardless of plausibility. Even though I initially calculated those
 %       values for Antarctica as well, I eliminated all values South of 60S for readability of the
 %       output maps.
 %
+% References:
+%   MODIS/Terra – Land Cover - https://lpdaac.usgs.gov/products/mcd12c1v006/
+%   MODIS/Terra – Snow cover from NSIDC - https://nsidc.org/data/MOD10CM/versions/6
+%   Albedo: Gao, F., T. He, Z. Wang, B. Ghimire, Y. Shuai, J. Masek, C. Schaaf, C. Williams (2014),
+%       Multiscale climatological albedo look-up maps derived from moderate resolution imaging
+%       spectroradiometer BRDF/albedo products, Journal of Applied Remote Sensing, 8(1), 083532.
+%   CACK v1.0 – Bright R. M. and O’Halloran, T. L.: CACKv1.0,
+%       available at: https://doi.org/10.6073/pasta/d77b84b11be99ed4d5376d77fe0043d8
+%   CAM3 – based on [Shell et al., 2008], people.oregonstate.edu/~shellk/kernel.html
+%       (Note 9.29.21 - dataset seems to have been removed)
+%   CAM5 – Pendergrass, A. G.: CAM5 Radiative Kernels
+%       https://www.earthsystemgrid.org/dataset/ucar.cgd.ccsm4.cam5-kernels.html
+%   ECHAM6 - Block, K. and Mauritsen, T.: ECHAM6 CTRL kernel,
+%       https://swiftbrowser.dkrz.de/public/dkrz_0c07783a-0bdc-4d5e-9f3b-c1b86fac060d/Radiative_kernels/
+%   HadGEM2 – Smith, C. J.: HadGEM2 radiative kernels, edited, University of Leeds.
+%       https://archive.researchdata.leeds.ac.uk/382/
+%   HadGEM3 – Smith, C. J.: HadGEM3-GA7.1 radiative kernels - https://doi.org/10.5281/zenodo.3594673
+%   NCAR-NCEP Reanalysis for solar radiation
+%
 % Created 6/30/2021 by Natalia Hasler, Clark University
-
-% Last modified: NH 9/27/2021
-%                (See Modification history at end of file)
-
 
 
 clearvars
@@ -47,7 +63,7 @@ forestbiomes = ["ENF","EBF","DNF","DBF","MF"];
 nfrst = length(forestbiomes);
 
 plc = strings(nfrst,3,npw-2);           % String array of 3-letter acronyms of old/new land cover in
-                                        %   the desired pathway (one/line) with 3 columns as
+                                        %   the desired pathway (one line) with 3 columns as
                                         %   1.  3-letter acronym of initial land cover
                                         %   2.  3-letter acronym of final land cover
                                         %   3.  pathway number (matching line number in "pathways")
@@ -864,8 +880,9 @@ Antarctica = lats <= latA;
 
 % 2. Save data in GeoTIFF fornat
 % ------------------------------
-
-bbox = [-180,-90;180,90];
+R = georasterref('RasterSize',[nlat,nlon],'RasterInterpretation','cells','ColumnsStartFrom',...
+    'north','LatitudeLimits',[-90,90],'LongitudeLimits',[-180,180]);
+cmptag.Compression = 'LZW';             % LZW compression is better than the default ...    
 
 for pp = 1 : npw
     pname = pwnames(pp);
@@ -878,29 +895,8 @@ for pp = 1 : npw
             data(landmask==0) = NaN; %#ok<SAGROW> % this should not be necessary, but somehow I still got zero values
             fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
                 pathwayslandcover(z,2),"_",kernels(kk),".tif");
-            geotiffwrite_easy(fname,bbox,data);
+            geotiffwrite(fname,data,R,'TiffTags',cmptag);
         end
     end
     clear pname ii ll z data fname
 end
-
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% MODIFICATIONS
-% **************
-% (i don't list any cosmetic changes)
-
-% 9/27/21 NH Added the CACKv1.0 and HadGEM3 kernels
-% 9/10/21 NH Gap-filled albedo data for missing months
-% 9/8/21 NH Made pathways more general to be able to add/remove some without having to change the
-%           code.
-% 9/2/21 NH Modified snow read
-% 9/2/21 NH Eliminated NaN due to missing snow albedo for month/pixels with no snow
-% 8/30/21 NH Output as geotiff maps
-% 8/26/21 NH Changed calculation to include all land pixels and added parfor loop
-% 8/26/21 NH Changed units to tCO2/ha
-    
