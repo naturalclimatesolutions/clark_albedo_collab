@@ -149,6 +149,8 @@ nlat1dg = 180;                          % 1 degree latitudes
 nlon1dg = 360;                          % 1 degree longitudes
 nlat = nlat1dg ./ latlonscale;          % number of pixels in MODIS-GCM latitude-wise
 nlon = nlon1dg ./ latlonscale;          % number of pixels in MODIS-GCM longitude-wise
+lat05 = 90 - latlonscale/2 : -latlonscale : -90 + latlonscale/2;
+lon05 = -180 + latlonscale/2 : latlonscale : 180 - latlonscale/2;
 
 kernelfilenames = strings(nkernels,1);  % kernel file names array (used in read loop)
 kernelvarnames = strings(nkernels,1);   % kernel variable name in original file
@@ -381,12 +383,42 @@ for kk = 1 : nkernels
         east = lons < 180;
         korigwrap = cat(2,korig(:,west,:),korig(:,east,:));
         lonswrap = cat(1,lons(west),lons(east));
+    else
+        korigwrap = korig;
+        lonswrap = lons;
     end
     if lats(1) ~= abs(lats(1))
         korigwrap = flipud(korigwrap);
         lats = flipud(lats);
     end
     
+    % d. check for missing data, and fill with 0 when dark
+    if sum(isnan(korigwrap),'all') > 0
+        for mm = 1 : nmonths
+            if sum(isnan(korigwrap(:,:,mm)),'all') > 0
+                for lo = 1 : nkoln
+                    val = korigwrap(:,lo,mm);
+                    if isnan(val(1)) && ismember(mm,[1:3,10:12])
+                        ll = find(isnan(val),1,'last');
+                        if lats(ll) > 66
+                            val(isnan(val)) = 0;
+                        else
+                            error("code here")
+                        end
+                    elseif isnan(val(nkolt)) && ismember(mm,4:9)
+                        ll = find(isnan(val),1,'first');
+                        if lats(ll) < -66
+                            val(isnan(val)) = 0;
+                        else
+                            error("code here")
+                        end
+                    end
+                    korigwrap(:,lo,mm) = val;
+                end
+            end
+        end
+    end            
+        
     % c. Resample values in the 0.05 x 0.05 grid (MODIS grid) - assuming lat/lon are pixel centers
     ini = 1; leftoveri = 0;
     fsti = round((90 - lats(1)) / latlonscale);
@@ -457,15 +489,18 @@ for kk = 1 : nkernels
         npixi(i) = length(ini:lasti);
         ini = lasti + 1;
         fsti = ssti;       
-    end
+    end    
     
     % d. Save kernel
     eval(strcat(kernels(kk)," = khires;"));
     strcat("Done importing kernel data from ",kernels(kk))
     
-end
-clear kk subdatafname khires albkern_hires korig lats lons nkolt nkoln west east korigwrap ...
+    clear subdatafname khires korig lats lons nkolt nkoln west east korigwrap ...
     lonswrap ini fsti leftoveri npixi npixj 
+
+    
+end
+clear kk albkern_hires
 
 
 % 5. Get pixel areas
@@ -871,8 +906,6 @@ save(datafname,globalvars{:},'-v7.3')
 
 % 1. Define Antarctica (or more precisely South of 60S)
 % --------------------
-lat05 = 90 - latlonscale/2 : -latlonscale : -90 + latlonscale/2;
-lon05 = -180 + latlonscale/2 : latlonscale : 180 - latlonscale/2;
 [~,lats] = meshgrid(lon05,lat05);
 latA = -60;
 Antarctica = lats <= latA;
