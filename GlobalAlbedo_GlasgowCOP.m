@@ -180,7 +180,7 @@ for kk = 1 : nkernels
             kernelvarnames(kk) = "CACK CM";
             kernelscale(kk) = -1;
         case "HADGEM3"
-            kernelfilenames(kk) = "HadGEM3-GA7.1_TOA_kernel_L85.nc";
+            kernelfilenames(kk) = "HADGEM3\HadGEM3-GA7.1_TOA_kernel_L85.nc";
             kernelvarnames(kk) = "albedo_sw";
             kernelscale(kk) = 100;
         otherwise
