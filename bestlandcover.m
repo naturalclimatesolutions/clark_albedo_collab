@@ -4,9 +4,9 @@ function blc = bestlandcover(latindex,lonindex,landcoverproportion,landcoverlist
 % FUNCTION bestlandcover: defines land cover (from a defined list) with most area in a pixel
 %   This function assigns the land cover class with the most area to a given pixel. Land cover class
 %   is chosen amoung a pre-defined subset of land cover classes given in "landcoverlist". When
-%   several land cover classes have the same area, class with most area in the 9x9 cluster centered
-%   aroung pixel is chosen. Only pixels with same region and climate indices as the pixel of
-%   interest are considered in the cluster.
+%   2 or more land cover classes have the same area in a given pixel, class (among that subset) with
+%   most area in the 9x9 cluster centered aroung pixel is chosen. Only pixels with same region and
+%   climate indices as the pixel of interest are considered in the cluster.
 % Input variables are as follows:
 %   1.  latindex                [npix] latitude index of one or several pixels (npix)
 %   2.  lonindex                [npix] longitude index of the same pixel(s)
@@ -49,12 +49,13 @@ for px = 1 : numel(latindex)
             scl = climate(smi,smj) == clim;
             sre = region(smi,smj) == reg;
             vpx = scl + sre == 2;
-            p2 = zeros(numel(landcoverlist),1);
-            for lc = 1 : numel(landcoverlist)
-                pp = smp(:,:,lc);
+            eligind = find(prop==max(prop));
+            p2 = zeros(numel(eligind),1);
+            for lc = 1 : numel(eligind)
+                pp = smp(:,:,eligind(lc));
                 p2(lc) = sum(double(pp(vpx)) .* sma(vpx));
             end
-            k = landcoverlist(p2 == max(p2));
+            k = landcoverlist(eligind(p2 == max(p2)));
             if numel(k) == 1
                 blc(px) = k;
             else
