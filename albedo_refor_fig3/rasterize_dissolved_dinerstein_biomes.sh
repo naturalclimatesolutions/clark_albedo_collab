@@ -1,0 +1,1 @@
+gdal_rasterize -init 255 -a BIOME_NUM -tr 0.005 0.005 -te -179.99998850914588 -60.00000471890853 180.00001149085412 89.99999528109147 -ot Byte -a_nodata 255 $D/TNC/repos/albedo/albedo_refor_fig3/Ecoregions2017_BIOME_DISSOLVE.shp ./Ecoregions2017_BIOME_DISSOLVE_BIOME_NUM.tif
