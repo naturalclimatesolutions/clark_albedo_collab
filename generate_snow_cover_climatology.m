@@ -6,13 +6,12 @@
 %   Climate Modeling Grid (CMG) cells. Monthly averages are computed from daily snow cover 
 %   observations in the MODIS/Terra Snow Cover Daily L3 Global 0.05Deg CMG (MOD10C1) data set.
 %   
-%  Source: https://nsidc.org/data/MOD10CM/versions/6
-%  Data Set ID: MOD10CM
+%  Source: https://nsidc.org/data/modis/data_summaries
+%  Data Set ID: MOD10CM (version 6.1)
 %
 % Created by Prof. Chris Williams, Clark University
 
-% Last modified: Natalia Hasler 9/22/2021
-%                (See Modification history at end of file)
+% Last modified: Natalia Hasler 1/14/22
 
 
 
@@ -29,15 +28,20 @@ firstdayinmonth = cumsum([1,daysinmonth]);
 lydaysinmonth = daysinmonth;
 lydaysinmonth(2)= 29;
 lyfirstdayinmonth = cumsum([1,lydaysinmonth]);
+daymonthindex = cat(1,firstdayinmonth,lyfirstdayinmonth);
 latlonscale = 0.05;
 nlat = 180 / latlonscale;
 nlon = 360 / latlonscale;
 blankmap = zeros(nlat,nlon);
+clear daysinmonth firstdayinmonth lydaysinmonth lyfirstdayinmonth
 
-MODISSnowFilesFolderPath = "G:TNC\GlobalAlbedo\SnowData\MODIS_SNOW_DATA\";
-ResultFolderPath = "G:TNC\GlobalAlbedo\SnowData\";
+MODISSnowFilesFolderPath = "G:\OriginalDatasets\SnowData\MODIS_MOD10CM_v6.1\";
+ResultFolderPath = "G:\ProcessedDatasets\SnowCover\";
 filelist = deblank(string(ls(MODISSnowFilesFolderPath)));
 snowfilelist = filelist(endsWith(filelist,"hdf"));
+
+yeardata = 2000:2022;   % add years when more available ...
+availablefiles = strings(length(yeardata),length(monthnames));
 
 
 % 2. Loop over months
@@ -46,6 +50,7 @@ for m = 1 : length(monthnames)
     
     data = blankmap;
     validdata = blankmap;
+    dayindex = unique(daymonthindex(:,m));
 
     
     % 3. Loop through all files and see if they belong to the desired month
@@ -53,24 +58,18 @@ for m = 1 : length(monthnames)
     for n = 1 : length(snowfilelist)
         
         fname = snowfilelist(n);
-        a = replace(fname,"."," ");
-        fdate = erase(extractBetween(a,"MOD10CM "," 006 "),"A");
-        fyear = floor(str2double(fdate) / 10^3);
-        fday = str2double(fdate) - fyear * 10^3;
-        
-        if isLeapYear(fyear)
-            day1 = lyfirstdayinmonth(m); day2 = lyfirstdayinmonth(m+1);
-        else
-            day1 = firstdayinmonth(m); day2 = firstdayinmonth(m+1);
-        end
-        
-        if fday < day1 || fday >= day2; continue; end
+        date = char(extractBetween(fname,"MOD10CM.A",".061"));
+        fyear = str2double(date(1:4));
+        fday = str2double(date(5:7));
+        if ismember(fday,dayindex) == 0, continue;end
+        yi = fyear == yeardata;
+        availablefiles(yi,m) = fname;
         
         
         % 4. Get data from file (if it belongs in desired month)
         % ---------------------
         S = hdfinfo(strcat(MODISSnowFilesFolderPath,fname),'eos');
-        varname = S.Grid.DataFields.Name;
+        varname = S.Grid.DataFields(1).Name;
         A = hdfread(S.Filename,varname);
         
         
@@ -94,6 +93,16 @@ for m = 1 : length(monthnames)
     save(outfname,'snowcover')
     
 end
+
+vartype = repmat("string",[1,length(monthnames)+1]);
+T = table('Size',[length(yeardata),length(monthnames)+1],'VariableTypes',vartype);
+T(:,1) = cellstr(string(yeardata)');
+for ii = 2 : length(monthnames)+1
+    T(:,ii) = cellstr(availablefiles(:,ii-1));
+end
+T.Properties.RowNames = cellstr(string(yeardata)); % This is redundant, but rowname is not saved in excel
+T.Properties.VariableNames = cellstr(["year",monthnames]);
+writetable(T,strcat(ResultFolderPath,"SnowFileNames.xlsx"));
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
