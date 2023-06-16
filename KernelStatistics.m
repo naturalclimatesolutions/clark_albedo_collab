@@ -429,7 +429,19 @@ end
 
 % 4. Table of Kernel "outliers"
 % ----------------------------
+cont = shaperead('G:\GlobalAlbedo\WorldRegions\Continents.shp');
+nct = numel(cont);
+continentnames = strings(nct,1);
+for cc = 1 : nct
+    continentnames(cc) = cont(cc).CONTINENT;
+end
 
+for cc = 1 : nct
+    clat = cont(cc).Y;
+    clon = cont(cc).X;
+    
+    incont = inpolygon(lats,lons,clat,clon);
+    
 
 
 
