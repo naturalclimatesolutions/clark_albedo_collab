@@ -662,6 +662,7 @@ tlsize = blocksize / tilediv;
 nbtiles = tilediv * tilediv;
         
 for rr = 1 : nblocks
+    tic
     if presland(rr) == true
         subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
         intsubdatafname = strcat(regoutputfiles,"AlbedoSubDataJune23_",num2str(rr),".mat");
@@ -857,7 +858,7 @@ for rr = 1 : nblocks
             tilemiss(:,:,:,:,tl) = sm_pathwaymiss;
             tileco2estat(:,:,:,:,tl) = sm_pathwayco2stat;
             
-            strcat("done with RF/CO2e calculation for subregion ",num2str(rr)," - tile #",...
+            strcat("done with block #",num2str(rr)," - tile #",...
                 num2str(tl)," (",num2str(length(a))," points)")
 
         end     % end parfor on tiles
@@ -900,19 +901,25 @@ for rr = 1 : nblocks
         end
 
         save(intsubdatafname,regco2{:},regmiss{:},regstats{:})
-        
-        strcat("done with RF/CO2e calculation for subregion ",num2str(rr),...
-            " (",num2str(sum(blocklandmask,'all'))," points)")
-        
+                
         clear(regco2{:},regmiss{:},regstats{:})
         clear nosnowblacksky nosnowwhitesky snowcovblacksky snowcovwhitesky ...
-            x y regi regj landcoverprop blocklandmask snowcover directsolar ...
+            x y regi regj landcoverprop snowcover directsolar ...
             diffusesolar diffusefraction cam3 cam5 echam6 hadgem2 ...
             canrf canda cangra cancro tlnsbs tlnsws tlscbs tlscws tlsnowcover tldiffrac ...
             tlkernels tllandmask tlpixarea tileco2e tilemiss ...
             tlcanrf tlcanad tlcangra tlcancro
 
-        
+        strcat("done with RF/CO2e calculation for subregion ",num2str(rr),...
+            " (",num2str(sum(blocklandmask,'all'))," points)")
+        elmtime = toc;
+        if elmtime > 180
+            h = floor(elmtime/3600);
+            m = floor((elmtime - h*3600)/60);
+            s = elmtime - (h*3600 + m*60);
+            duration([h,m,s])
+        end
+        clear elmtime h m s blocklandmask
     end     % end if region has land data
 end
 
