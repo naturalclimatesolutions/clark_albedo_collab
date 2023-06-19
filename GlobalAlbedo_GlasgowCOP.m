@@ -91,7 +91,7 @@ switch computer                         % directory paths for project data (depe
     otherwise
         rootdir = 'D:\NCS-GlobalAlbedo\FilledAlbedo\';
         mapdir = strcat('G:\TNC\GlobalAlbedo\');
-        resultdir = 'E:\NCS-GlobalAlbedo\';
+        resultdir = 'E:\GlobalAlbedo\';
 end
 
 % b. Input dataset files/folder paths
@@ -994,6 +994,16 @@ for pp = 1 : npw
             data(landmask==0) = NaN; %#ok<SAGROW> % this should not be necessary, but somehow I still got zero values
             fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
                 pathwayslandcover(z,2),"_",kernels(kk),".tif");
+            geotiffwrite(fname,data,R,'TiffTags',cmptag);
+        end
+        for ss = 1 : nstats
+            eval(strcat("data =",pname,"Kstats(:,:,ss,ll);"))
+            des = desiredstatistics(ss);
+            des = replace(des," ","_");
+            data(Antarctica) = nan;
+            data(landmask==0) = nan;
+            fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
+                pathwayslandcover(z,2),"_",des,".tif");
             geotiffwrite(fname,data,R,'TiffTags',cmptag);
         end
     end
