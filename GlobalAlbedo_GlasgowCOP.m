@@ -986,15 +986,25 @@ cmptag.Compression = 'LZW';             % LZW compression is better than the def
 for pp = 1 : npw
     pname = pwnames(pp);
     ii = find(pwid==pp);
+    fold = strcat(resultslocalfolder,pname,"\ByIndividualKernel\");
+    if ~exist(fold,'dir')
+        mkdir(fold)
+    end
+    fold2 = strcat(resultslocalfolder,pname,"\ByStats\");
+    if ~exist(fold2,'dir')
+        mkdir(fold2)
+    end
     for ll = 1 : length(ii)
         z = ii(ll);
         for kk = 1 : nkernels
+            shortname = strcat(pathwayslandcover(z,1),"2",pathwayslandcover(z,2),"_",...
+                kernels(kk),".tif");
             eval(strcat("data = ",pname,"(:,:,kk,ll);"))
             data(Antarctica) = NaN; %#ok<SAGROW>
             data(landmask==0) = NaN; %#ok<SAGROW> % this should not be necessary, but somehow I still got zero values
-            fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
-                pathwayslandcover(z,2),"_",kernels(kk),".tif");
+            fname = strcat(fold,shortname);
             geotiffwrite(fname,data,R,'TiffTags',cmptag);
+            strcat("Done with exporting ",shortname)
         end
         for ss = 1 : nstats
             eval(strcat("data =",pname,"Kstats(:,:,ss,ll);"))
@@ -1002,10 +1012,11 @@ for pp = 1 : npw
             des = replace(des," ","_");
             data(Antarctica) = nan;
             data(landmask==0) = nan;
-            fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
-                pathwayslandcover(z,2),"_",des,".tif");
+            shortname = strcat(pathwayslandcover(z,1),"2",pathwayslandcover(z,2),"_",des,".tif");
+            fname = strcat(fold2,shortname);
             geotiffwrite(fname,data,R,'TiffTags',cmptag);
+            strcat("Done with exporting ",shortname)
         end
     end
-    clear pname ii ll z data fname
+    clear pname ii ll z data fname fold fold2 shortname
 end
