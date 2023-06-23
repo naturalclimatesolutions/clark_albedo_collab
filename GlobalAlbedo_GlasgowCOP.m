@@ -54,15 +54,15 @@ computer = "GEO-005199";                % where the routine is run (for director
 pathways = ...                          % name of studied pathways
     ["deforestation to croplands";"deforestation to grasslands";...
     "deforestation to urban developement";"reforestation from open shrublands";...
-    "reforestation from closed shrublands";"grassland to open savanna";"grassland to woody savanna"];
+    "reforestation from closed shrublands";"crop mosaic to forest"];
 pwnames = ["Forest2Crop";...            % pathway names to use as folder names
     "Forest2Grass";"Forest2Urban";...
-    "OpenShrub2Forest";"ClosedShrub2Forest";"Grass2Savanna";"Grass2WoodySavanna"];
+    "OpenShrub2Forest";"ClosedShrub2Forest";"CropVegMosaic2Forest"];
 npw = length(pathways);
-forestbiomes = ["ENF","EBF","DNF","DBF","MF"];
+forestbiomes = ["ENF","EBF","DNF","DBF","MF","WSA","SAV"];
 nfrst = length(forestbiomes);
 
-plc = strings(nfrst,3,npw-2);           % String array of 3-letter acronyms of old/new land cover in
+plc = strings(nfrst,3,npw);           % String array of 3-letter acronyms of old/new land cover in
                                         %   the desired pathway (one line) with 3 columns as
                                         %   1.  3-letter acronym of initial land cover
                                         %   2.  3-letter acronym of final land cover
@@ -71,12 +71,12 @@ plc(:,1,1:3) = repmat(forestbiomes,[1,1,3]);
 plc(:,2,1) = repmat("CRO",[nfrst,1]);
 plc(:,2,2) = repmat("GRA",[nfrst,1]);
 plc(:,2,3) = repmat("URB",[nfrst,1]);
-plc(:,2,4:5) = repmat(forestbiomes',[1,1,2]);
+plc(:,2,4:6) = repmat(forestbiomes',[1,1,3]);
 plc(:,1,4) = repmat("OSH",[nfrst,1]);
 plc(:,1,5) = repmat("CSH",[nfrst,1]);
-plc(:,3,:) = permute(repmat(1:5,[nfrst,1]),[1,3,2]);
-pathwayslandcover = reshape(permute(plc,[1,3,2]),[nfrst*(npw-2),3]);
-pathwayslandcover = cat(1,pathwayslandcover,["GRA","SAV","6"],["GRA","WSA","7"]);
+plc(:,1,6) = repmat("MOS",[nfrst,1]);
+plc(:,3,:) = permute(repmat(1:6,[nfrst,1]),[1,3,2]);
+pathwayslandcover = reshape(permute(plc,[1,3,2]),[nfrst*(npw),3]);
 
 % ***************************************
 
@@ -91,7 +91,7 @@ switch computer                         % directory paths for project data (depe
     otherwise
         rootdir = 'D:\NCS-GlobalAlbedo\FilledAlbedo\';
         mapdir = strcat('G:\TNC\GlobalAlbedo\');
-        resultdir = 'E:\NCS-GlobalAlbedo\';
+        resultdir = 'E:\GlobalAlbedo\';
 end
 
 % b. Input dataset files/folder paths
@@ -113,6 +113,10 @@ resultslocalfolder = strcat(resultdir,"GlasgowCOP\");
 Ca_PgC  = 400*2.13;                     % current base CO2 in atmos [Pg C]
 Aglobe  = 5.1007e14;                    % global surface area [m2]
 latlonscale = 0.05;                     % MODIS GCM scale
+
+desiredstatistics = ...                 % list of statistics to be performed
+    ["min","max","mean","median","range","standard deviation"];
+nstats = numel(desiredstatistics);
 
 IGBPBiomes = ["Water bodies"; ...       % IGBP Biomes names
     "Evergreen needleleaf forests"; "Evergreen broadleaf forests"; "Deciduous needleleaf forests";...
@@ -211,11 +215,15 @@ blockalbedo = zeros(blocksize,blocksize,nmonths,nbiomes);
 % c. Global output arrays
 forestpathways = NaN(nlat,nlon,nkernels,nfrst); %#ok<NASGU>
 nonforestpathways = NaN(nlat,nlon,nkernels); %#ok<NASGU>
+foreststatspathways = nan(nlat,nlon,nstats,nfrst);
+missfpw = nan(nlat,nlon,nmonths,nfrst); %#ok<NASGU> 
+fstptw = strcat(pwnames,"Kstats");
 
 for pp = 1 : npw
     if sum(pwid==pp) == nfrst
         eval(strcat(pwnames(pp)," = forestpathways;"))
         eval(strcat("Miss",pwnames(pp)," = missfpw;"))
+        eval(strcat(fstptw(pp)," = foreststatspathways;"))
     elseif sum(pwid==pp) == 1
         eval(strcat(pwnames(pp)," = nonforestpathways;"))
         eval(strcat("Miss",pwnames(pp)," = missnfpw;"))
@@ -232,8 +240,14 @@ clear forestpathways nonforestpathways missnfpw missfpw
 % d. Regional output arrays
 regfCO2e= NaN(blocksize,blocksize,nkernels,nfrst);
 regnfCO2e= NaN(blocksize,blocksize,nkernels);
+regsCO2e = nan(blocksize,blocksize,nstats,nfrst);
 regfmiss = false(blocksize,blocksize,nmonths,nfrst);
 regnfmiss = false(blocksize,blocksize,nmonths);
+
+regco2 = strcat("regco2",lower(pwnames));
+regmiss = strcat("regmiss",lower(pwnames));
+regstats = strcat("regco2stat",lower(pwnames));
+
 
 
 % 5. Save input variables for later use
@@ -683,8 +697,10 @@ tlsize = blocksize / tilediv;
 nbtiles = tilediv * tilediv;
         
 for rr = 1 : nblocks
+    tic
     if presland(rr) == true
         subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+        intsubdatafname = strcat(regoutputfiles,"AlbedoSubDataJune23_",num2str(rr),".mat");
         load(subdatafname);
         
         
@@ -693,6 +709,7 @@ for rr = 1 : nblocks
         tilemvars = NaN(tlsize,tlsize,nmonths,nbtiles);
         tilealvar = NaN(tlsize,tlsize,nmonths,nbiomes,nbtiles);
         tileco2e = NaN(tlsize,tlsize,nkernels,nlcc,nbtiles);
+        tileco2estat = nan(tlsize,tlsize,nstats,nlcc,nbtiles);
         tilemiss = false(tlsize,tlsize,nmonths,nlcc,nbtiles);
         
         tlnsbs = tilealvar; tlnsws = tilealvar; tlscbs = tilealvar; tlscws = tilealvar;
@@ -747,6 +764,7 @@ for rr = 1 : nblocks
             sm_pixelarea = tlpixarea(:,:,tl);
             
             sm_pathwayco2 = NaN(tlsize,tlsize,nkernels,nlcc);
+            sm_pathwayco2stat = nan(tlsize,tlsize,nstats,nlcc);
             sm_pathwaymiss = false(tlsize,tlsize,nmonths,nlcc);
             
             [a,b] = find(sm_landmask);
@@ -823,6 +841,46 @@ for rr = 1 : nblocks
                 
                     % e. Save values in tile arrays
                     sm_pathwayco2(i,j,:,ll) = CO2eq_TOA;
+
+
+                    % 7. Calculate kernel's statistics
+                    % --------------------------------
+                    % min/max values should represent the min and max offset, not the minimum value,
+                    % so it gets tricky when values cross the line, but I'll keep it somewhat simple
+                    % with generally max effect meaning minimum value.
+                    vsig = sign(CO2eq_TOA);
+                    if sum(vsig) == 6
+                        minval = min(CO2eq_TOA); maxval = max(CO2eq_TOA);
+                    else
+                        maxval = min(CO2eq_TOA);
+                        mi = min(abs(CO2eq_TOA));
+                        ii = abs(CO2eq_TOA) == mi;
+                        tmpminval = CO2eq_TOA(ii);
+                        if numel(tmpminval) == 1
+                            minval = tmpminval;
+                        elseif sum(diff(tmpminval)) == 0
+                            minval = tmpminval(1);
+                        else
+                            minval = mi;
+                        end
+                    end
+                    for ss = 1 : nstats
+                        stat = desiredstatistics(ss); %#ok<PFBNS>
+                        switch stat
+                            case "min"
+                                sm_pathwayco2stat(i,j,ss,ll) = minval;
+                            case "max"
+                                sm_pathwayco2stat(i,j,ss,ll) = maxval;
+                            case "median"
+                                sm_pathwayco2stat(i,j,ss,ll) = median(CO2eq_TOA,'omitnan');
+                            case "mean"
+                                sm_pathwayco2stat(i,j,ss,ll) = mean(CO2eq_TOA,'omitnan');
+                            case "standard deviation"
+                                sm_pathwayco2stat(i,j,ss,ll) = std(CO2eq_TOA,'omitnan');
+                            case "range"
+                                sm_pathwayco2stat(i,j,ss,ll) = range(CO2eq_TOA);
+                        end
+                    end
                 
                 end     % end loop on all individual pathways
                                 
@@ -833,8 +891,9 @@ for rr = 1 : nblocks
             % ----------------------------------------------
             tileco2e(:,:,:,:,tl) = sm_pathwayco2;
             tilemiss(:,:,:,:,tl) = sm_pathwaymiss;
+            tileco2estat(:,:,:,:,tl) = sm_pathwayco2stat;
             
-            strcat("done with RF/CO2e calculation for subregion ",num2str(rr)," - tile #",...
+            strcat("done with block #",num2str(rr)," - tile #",...
                 num2str(tl)," (",num2str(length(a))," points)")
 
         end     % end parfor on tiles
@@ -844,8 +903,9 @@ for rr = 1 : nblocks
         % -------------------------------------------        
         for pp = 1 : npw
             if sum(pwid==pp) == nfrst
-                eval(strcat("regco2",lower(pwnames(pp))," = regfCO2e;"));
-                eval(strcat("regmiss",lower(pwnames(pp))," = regfmiss;"));
+                eval(strcat(regco2(pp)," = regfCO2e;"));
+                eval(strcat(regmiss(pp)," = regfmiss;"));
+                eval(strcat(regstats(pp)," = regsCO2e;"));
             else
                 eval(strcat("regco2",lower(pwnames(pp))," = regnfCO2e;"));
                 eval(strcat("regmiss",lower(pwnames(pp))," = regnfmiss;"));
@@ -860,8 +920,9 @@ for rr = 1 : nblocks
             
             for pp = 1 : npw
                 ii = pwid == pp;
-                eval(strcat("regco2",lower(pwnames(pp)),"(tli,tlj,:,:) = tileco2e(:,:,:,ii,tl);"));
-                eval(strcat("regmiss",lower(pwnames(pp)),"(tli,tlj,:,:) = tilemiss(:,:,:,ii,tl);"));
+                eval(strcat(regco2(pp),"(tli,tlj,:,:) = tileco2e(:,:,:,ii,tl);"));
+                eval(strcat(regmiss(pp),"(tli,tlj,:,:) = tilemiss(:,:,:,ii,tl);"));
+                eval(strcat(regstats(pp),"(tli,tlj,:,:) = tileco2estat(:,:,:,ii,tl);"));
             end
         end            
         
@@ -871,30 +932,35 @@ for rr = 1 : nblocks
         for pp = 1 : npw
             eval(strcat(pwnames(pp),"(regi,regj,:,:) = regco2",lower(pwnames(pp)),";"));
             eval(strcat("Miss",pwnames(pp),"(regi,regj,:,:) = regmiss",lower(pwnames(pp)),";"));
+            eval(strcat(fstptw(pp),"(regi,regj,:,:) = regco2stat",lower(pwnames(pp)),";"));
         end
 
-        regvars = cellstr(cat(1,strcat("regco2",lower(pwnames)),...
-            strcat("regmiss",lower(pwnames))));
-        save(subdatafname,regvars{:},'-append')
-        
-        strcat("done with RF/CO2e calculation for subregion ",num2str(rr),...
-            " (",num2str(sum(blocklandmask,'all'))," points)")
-        
-        clear(regvars{:})
+        save(intsubdatafname,regco2{:},regmiss{:},regstats{:})
+                
+        clear(regco2{:},regmiss{:},regstats{:})
         clear nosnowblacksky nosnowwhitesky snowcovblacksky snowcovwhitesky ...
-            x y regi regj landcoverprop blocklandmask snowcover directsolar ...
+            x y regi regj landcoverprop snowcover directsolar ...
             diffusesolar diffusefraction cam3 cam5 echam6 hadgem2 ...
             canrf canda cangra cancro tlnsbs tlnsws tlscbs tlscws tlsnowcover tldiffrac ...
             tlkernels tllandmask tlpixarea tileco2e tilemiss ...
             tlcanrf tlcanad tlcangra tlcancro
 
-        
+        strcat("done with RF/CO2e calculation for subregion ",num2str(rr),...
+            " (",num2str(sum(blocklandmask,'all'))," points)")
+        elmtime = toc;
+        if elmtime > 180
+            h = floor(elmtime/3600);
+            m = floor((elmtime - h*3600)/60);
+            s = elmtime - (h*3600 + m*60);
+            duration([h,m,s])
+        end
+        clear elmtime h m s blocklandmask
     end     % end if region has land data
 end
-        
-datafname = strcat(regoutputfiles,"AlbedoFinalData6ker.mat");
-globalvars = cellstr(cat(1,pwnames,strcat("Miss",pwnames)));
-save(datafname,globalvars{:},'-v7.3')
+
+missnames = strcat("Miss",pwnames);
+datafname = strcat(regoutputfiles,"AlbedoFinalDataJune23.mat");
+save(datafname,pwnames{:},fstptw{:},missnames{:},'-v7.3')
 
 
 
@@ -920,16 +986,37 @@ cmptag.Compression = 'LZW';             % LZW compression is better than the def
 for pp = 1 : npw
     pname = pwnames(pp);
     ii = find(pwid==pp);
+    fold = strcat(resultslocalfolder,pname,"\ByIndividualKernel\");
+    if ~exist(fold,'dir')
+        mkdir(fold)
+    end
+    fold2 = strcat(resultslocalfolder,pname,"\ByStats\");
+    if ~exist(fold2,'dir')
+        mkdir(fold2)
+    end
     for ll = 1 : length(ii)
         z = ii(ll);
         for kk = 1 : nkernels
+            shortname = strcat(pathwayslandcover(z,1),"2",pathwayslandcover(z,2),"_",...
+                kernels(kk),".tif");
             eval(strcat("data = ",pname,"(:,:,kk,ll);"))
             data(Antarctica) = NaN; %#ok<SAGROW>
             data(landmask==0) = NaN; %#ok<SAGROW> % this should not be necessary, but somehow I still got zero values
-            fname = strcat(resultslocalfolder,pname,"\",pathwayslandcover(z,1),"2",...
-                pathwayslandcover(z,2),"_",kernels(kk),".tif");
+            fname = strcat(fold,shortname);
             geotiffwrite(fname,data,R,'TiffTags',cmptag);
+            strcat("Done with exporting ",shortname)
+        end
+        for ss = 1 : nstats
+            eval(strcat("data =",pname,"Kstats(:,:,ss,ll);"))
+            des = desiredstatistics(ss);
+            des = replace(des," ","_");
+            data(Antarctica) = nan;
+            data(landmask==0) = nan;
+            shortname = strcat(pathwayslandcover(z,1),"2",pathwayslandcover(z,2),"_",des,".tif");
+            fname = strcat(fold2,shortname);
+            geotiffwrite(fname,data,R,'TiffTags',cmptag);
+            strcat("Done with exporting ",shortname)
         end
     end
-    clear pname ii ll z data fname
+    clear pname ii ll z data fname fold fold2 shortname
 end
