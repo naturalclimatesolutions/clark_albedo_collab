@@ -48,7 +48,7 @@ PrintAlbedoCarbonMaps
 % Opportunity Stats and Albedo Sensitivity (now we limit it to albedo only)
 % ****************************************
 CalculateOpportunityStats
-ExportOpportunityTable
+ExportOpportunityTables
 PrintOpportunityBarCharts
 PrintSensitivityMap
 
