@@ -30,13 +30,16 @@ resfolder = strcat(homeroot,"GlobalAlbedo\Results\");
 boxpath = "C:\Users\nhasler\Box\Albedo (Clark-TNC)";
 
 % Data in MODIS GCM 0.05 degrees
+MODISSnowFilesFolderPath = "G:\OriginalDatasets\SnowData\MODIS_MOD10CM_v6.1\";
+ResultFolderPath = "G:\ProcessedDatasets\SnowCover\";
 landcovermap20 = strcat(origdatafolder,"MODISLandCover\MCD12C1.A2020001.006.2021362215328.hdf");
 landcovermap01 = strcat(origdatafolder,"MODISLandCover\MCD12C1.A2001001.006.2018053185512.hdf");
 albedosnowfree = strcat(origdatafolder,"AlbedoAtlas\snow_free_hierarchical_v3\");
 albedosnowcovered = strcat(origdatafolder,"AlbedoAtlas\snow_covered_hierarchical_v3\");
 albedoheader = strcat(albedosnowcovered,"hierarchical_snow_albedo_igbp_0.05.bsa_shortwave.Jan.hdr");
 albedopaths = cat(1,albedosnowfree,albedosnowfree,albedosnowcovered,albedosnowcovered);
-snowcoverdata = strcat(origdatafolder,"SnowData\");
+snowcoverdata = strcat(origdatafolder,"SnowData\MODIS_MOD10CM_v6.1\");
+climsnowcover = strcat(intdatafolder,"SnowCover\");
 solarradiation = strcat(origdatafolder,"SolarFlux\");
 radiativekernel = strcat(origdatafolder,"RadiativeKernels\");
 reg05fname = strcat(inputdatafolder,"Regions05.tif");

@@ -7,14 +7,14 @@
 % 
 % References:
 %   Land-cover:     MODIS/Terra – Land Cover - https://lpdaac.usgs.gov/products/mcd12c1v006/
-%   Snow-cover:     MODIS/Terra – Snow cover from NSIDC - https://nsidc.org/data/MOD10CM/versions/6
+%   Snow-cover:     MODIS/Terra – Snow cover from NSIDC -
+%                       https://nsidc.org/data/mod10cm/versions/61
 %   Solar radiation:NCAR-NCEP Reanalysis for solar radiation
 %   Albedo:         Gao, F., T. He, Z. Wang, B. Ghimire, Y. Shuai, J. Masek, C. Schaaf, 
 %                       C. Williams (2014), Multiscale climatological albedo look-up maps derived
 %                       from moderate resolution imaging spectroradiometer BRDF/albedo products, 
 %                       Journal of Applied Remote Sensing, 8(1), 083532.
-%   Kernels:
-%                   CACK v1.0 – Bright R. M. and O’Halloran, T. L.: CACKv1.0,
+%   Kernels:        CACK v1.0 – Bright R. M. and O’Halloran, T. L.: CACKv1.0,
 %                       available at: https://doi.org/10.6073/pasta/d77b84b11be99ed4d5376d77fe0043d8
 %                   CAM3 – based on [Shell et al., 2008], people.oregonstate.edu/~shellk/kernel.html
 %                       (Note 9.29.21 - dataset seems to have been removed)
@@ -66,7 +66,7 @@ clear kk i
 %   3)  For NaN land points, fill with temporal or spatial nearest neighbors. These missing points
 %       are usually over 50% water, which is why they were ignored in the MODIS dataset.
 for m = 1 : nmonths
-    subdatafname = strcat("F:\IntermediaryFiles\MATfiles\SnowCover\SnowCover_2000-2021_",monthnames(m),".mat");
+    subdatafname = strcat(climsnowcover,"SnowCover_2000-2021_",monthnames(m),".mat");
     load(subdatafname,'snowcover');
     temp = sum(snowcover,2,'omitnan');
     if m < 4 || m > 9

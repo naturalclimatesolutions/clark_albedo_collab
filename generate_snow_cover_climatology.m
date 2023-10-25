@@ -11,18 +11,9 @@
 %
 % Created by Prof. Chris Williams, Clark University
 
-% Last modified: Natalia Hasler 1/14/22
 
-
-
-clearvars
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% 1. Define input variables and parameters
-% ----------------------------------------
-
-monthnames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+% Define input variables and parameters
+% *************************************
 daysinmonth = [31,28,31,30,31,30,31,31,30,31,30,31];
 firstdayinmonth = cumsum([1,daysinmonth]);
 lydaysinmonth = daysinmonth;
@@ -35,9 +26,8 @@ nlon = 360 / latlonscale;
 blankmap = zeros(nlat,nlon);
 clear daysinmonth firstdayinmonth lydaysinmonth lyfirstdayinmonth
 
-MODISSnowFilesFolderPath = "G:\OriginalDatasets\SnowData\MODIS_MOD10CM_v6.1\";
-ResultFolderPath = "G:\ProcessedDatasets\SnowCover\";
-filelist = deblank(string(ls(MODISSnowFilesFolderPath)));
+if ~exist(climsnowcover,'dir'), mkdir(climsnowcover); end
+filelist = deblank(string(ls(snowcoverdata)));
 snowfilelist = filelist(endsWith(filelist,"hdf"));
 
 yeardata = 2000:2022;   % add years when more available ...
@@ -68,7 +58,7 @@ for m = 1 : length(monthnames)
         
         % 4. Get data from file (if it belongs in desired month)
         % ---------------------
-        S = hdfinfo(strcat(MODISSnowFilesFolderPath,fname),'eos');
+        S = hdfinfo(strcat(snowcoverdata,fname),'eos');
         varname = S.Grid.DataFields(1).Name;
         A = hdfread(S.Filename,varname);
         
@@ -89,7 +79,7 @@ for m = 1 : length(monthnames)
     % --------------------------
     snowcover = data ./ validdata;
     
-    outfname = strcat(ResultFolderPath,"SnowCover_2000-2021_",monthnames(m),".mat");
+    outfname = strcat(climsnowcover,"SnowCover_2000-2021_",monthnames(m),".mat");
     save(outfname,'snowcover')
     
 end
@@ -102,11 +92,5 @@ for ii = 2 : length(monthnames)+1
 end
 T.Properties.RowNames = cellstr(string(yeardata)); % This is redundant, but rowname is not saved in excel
 T.Properties.VariableNames = cellstr(["year",monthnames]);
-writetable(T,strcat(ResultFolderPath,"SnowFileNames.xlsx"));
+writetable(T,strcat(climsnowcover,"SnowFileNames.xlsx"));
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% MODIFICATIONS
-
-% 9/2/21 NH Corrected the calculation of valid data
