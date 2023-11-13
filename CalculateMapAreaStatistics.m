@@ -11,9 +11,9 @@ cvals = -2000:2000; ncvals = numel(cvals);
 aovals = -10000:10000; naovals = numel(aovals);
 redarr = ismember(aovals,cvals);
 ncilist = strcat(allreforestationopp,"NCI");
-basename = cat(1,["AlbedoRF";"AlbedoOffset";"CarbonOnlyRFlimited"],permute(ncilist,[2,1]));
+basename = cat(1,["AlbedoGWP";"AlbedoOffset";"CarbonOnlyRFlimited"],permute(ncilist,[2,1]));
 areacountarraylist = strcat(basename,"_AreaCount");
-varlist = ["RFmed005","AObase","WlkTCO2RF","NCIbase","NCIbase","NCIbase","NCIbase"];
+varlist = ["GWPmed005","AObase","WlkTCO2RF","NCIbase","NCIbase","NCIbase","NCIbase"];
 blockarrays = strcat("Block_",areacountarraylist);
 pfsize = [blocksize005,blocksize005,numel(areacountarraylist)];
 
@@ -33,12 +33,12 @@ for bb = 1 : nbblocks
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
     load(subfilename,"landmask","pixarea")
-    load(radforfname,"RFmed005","WlkTCO2RF")
+    load(radforfname,"GWPmed005","WlkTCO2RF")
     statfilename = strcat(regoutputfiles,"ROstats005_",num2str(bb),".mat");
 
-    if sum(isnan(RFmed005),'all') == blocksize005^2, continue; end % To compare maps, limit Walker to RF pixels
+    if sum(isnan(GWPmed005),'all') == blocksize005^2, continue; end % To compare maps, limit Walker to RF pixels
     load(radforfname,"AObase","NCIbase") %#ok<NASGU>
-    load(subfilename,"selectedbastin","walkeroppcat","griscom")
+    load(subfilename,"selectedbastin","walkeroppcat","griscom","combinedopp")
     masks = false(pfsize);
     data = nan(pfsize,'single');
     intarray = zeros(naovals,numel(areacountarraylist));
@@ -54,6 +54,8 @@ for bb = 1 : nbblocks
                 masks(:,:,aa) = griscom == 1;
             case "BastinNCI"
                 masks(:,:,aa) = selectedbastin;
+            case "CombinedOppNCI"
+                masks(:,:,aa) = combinedopp;
             otherwise
                 masks(:,:,aa) = landmask;
         end
@@ -65,6 +67,8 @@ for bb = 1 : nbblocks
         ararray = intarray(:,aa);
         armask = masks(:,:,aa);
         ardata(armask==0) = nan;
+        ardata(ardata<aovals(1)) = aovals(1); %#ok<PFBNS> 
+        ardata(ardata>aovals(numel(aovals))) = aovals(numel(aovals));
         arpixarea = pixarea;
         datalist = unique(ardata(isfinite(ardata)));
         for cc = 1 : numel(datalist)
@@ -86,7 +90,7 @@ for bb = 1 : nbblocks
     clear aa masks data intarray
 
     save(statfilename,blockarrays{:})
-    clear(blockarrays{:},"WalkertotCO2","AObase","NCIbase","RFmed005","selectedbastin",...
+    clear(blockarrays{:},"WalkertotCO2","AObase","NCIbase","GWPmed005","selectedbastin",...
         "walkeroppcat","griscom","landmask","pixarea")
 
     strcat("Done with adding areas for map stats in block #",num2str(bb))

@@ -133,8 +133,8 @@ for bb = 1 : numel(datablock)
                 maskdata = ismember(walkeroppcat,Wsc);
             case "griscom"
                 maskdata = griscom == 1;
-            case "selectedbastin"
-                maskdata = selectedbastin;
+            otherwise
+                eval(strcat("maskdata =",mask,";"))
         end
     end
     

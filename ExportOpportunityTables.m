@@ -5,11 +5,11 @@ below50 = offsetcat(1:nocat)<aothreshold;
 above75 = offsetcat(2:nocat+1)>75;
 above100 = offsetcat(2:nocat+1)>100;
 semigeographicorder = [11,6,8,12,5,4,7,3,2,1,14,9,10,13];
-opporder = ["Griscom","Bastin","Walker","TotalBiome"];
+opporder = ["Griscom","Bastin","Walker","CombinedOpp","TotalBiome"];
 no = numel(opporder);
 [~,noi] = ismember(opporder,allreforestationopp);
-noi(noi==0) = 4;
-xcelfile = strcat(resfolder,"ReforestationOpportunityStatsbybiomes.xlsx");
+noi(noi==0) = 5;
+xcelfile = strcat(resfolder,"GWPReforestationOpportunityStatsbybiomes.xlsx");
 ncont = numel(continents);
 clm = ["Biomes","Area","No-albedo carbon","Total NCI (carbon+albedo)",...
     "NCI average rate","Mean Albedo Offset",...

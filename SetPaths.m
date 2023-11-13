@@ -13,7 +13,7 @@ switch computer
         homeroot = "D:\";
         intmat = strcat(dataroot,"IntermediaryFiles\MATfiles\");
     case "8904"
-        dataroot = "F:\";
+        dataroot = "I:\";
         homeroot = "D:\";
         intmat = "E:\GlobalAlbedo\MATFiles\";
 

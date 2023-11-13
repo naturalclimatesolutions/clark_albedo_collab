@@ -97,20 +97,20 @@ for bb = 1 : nbblocks
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
     load(subfilename,"walkertotbio")
-    load(radforfname,RFmaps{:})
+    load(radforfname,GWPmaps{:})
     
-    if sum(isnan(RFmax005),'all') ~= blocksize005^2
+    if sum(isnan(GWPmax005),'all') ~= blocksize005^2
         wlk = walkertotbio * 44/12;
         
         for ss = 1 : numel(albedostats)
-            eval(strcat("alb = ",RFmaps(ss),";"));
+            eval(strcat("alb = ",GWPmaps(ss),";"));
             AO = (-alb ./ wlk) .* 100;
-            posrf = alb>0;
-            kinf = isinf(AO);       % isinf does not differenciate -inf and inf ...
-            kneginf = kinf; kneginf(logical(1-posrf)) = false;
-            kinf(posrf) = false;
-            AO(kinf) = offsetcat(numel(offsetcat));
-            AO(kneginf) = offsetcat(1);
+%             posrf = alb>0;
+%             kinf = isinf(AO);       % isinf does not differenciate -inf and inf ...
+%             kneginf = kinf; kneginf(logical(1-posrf)) = false;
+%             kinf(posrf) = false;
+%             AO(kinf) = offsetcat(numel(offsetcat));
+%             AO(kneginf) = offsetcat(1);
 
             NCI = alb + wlk;
 
@@ -127,7 +127,7 @@ for bb = 1 : nbblocks
     else
         strcat("No valid values of albedo in block #",num2str(bb))
     end
-    clear("walkertotbio",RFmaps{:})
+    clear("walkertotbio",GWPmaps{:})
 end
 
 save(sparameterfile,"bdnames","AOarrays","NCIarrays",'-append')

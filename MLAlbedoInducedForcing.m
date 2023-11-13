@@ -206,7 +206,7 @@ for bb = 1 : nbblocks
             kerval = squeeze(tlkern(i,j,:,:));
             
             pval = ptradforcing(lc1,lc2,nsbs,nsws,scbs,scws,snow,diffuse,kerval,area,...
-                kerstat);
+                kerstat,GWP100,Ca_PgC);
 
             tlRFmed(i,j) = pval(1);     % According to "kerstat"
             tlRFmin(i,j) = pval(2);
@@ -230,9 +230,14 @@ for bb = 1 : nbblocks
         RFmin005(i,j) = tiledRFmin(:,:,tl);
         RFmax005(i,j) = tiledRFmax(:,:,tl);
     end
+
+    GWPmed005 = RFmed005 .* GWP100;
+    GWPmin005 = RFmin005 .* GWP100;
+    GWPmax005 = RFmax005 .* GWP100;
+    
     
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
-    save(radforfname,"RFmed005","RFmin005","RFmax005");
+    save(radforfname,"RFmed005","RFmin005","RFmax005","GWPmax005","GWPmin005","GWPmed005");
     
     
     clear RFmed005 RFmin005 RFmax005 rofname radforfname z bid ii jj  tl y x i j ...
@@ -250,7 +255,8 @@ for bb = 1 : nbblocks
     
 end
 RFmaps = ["RFmed005","RFmin005","RFmax005"];
-save(sparameterfile,"RFmaps",'-append')
+GWPmaps = ["GWPmed005","GWPmin005","GWPmax005"];
+save(sparameterfile,"RFmaps","GWPmaps",'-append')
 
 
 

@@ -126,7 +126,7 @@ regionnames = ["Antarctica","Asiatic Russia","Australia/New Zealand","Caribbean"
     "Melanesia","Micronesia","Middle Africa","Northern Africa","Northern America",...
     "Northern Europe","Polynesia","South America","Southeastern Asia","Southern Africa",...
     "Southern Asia","Southern Europe","Western Africa","Western Asia","Western Europe"];
-continents = ["Africa","Asia","Europe","North America","South America","Oceania"];
+continents = ["Antarctica","Africa","Asia","Europe","North America","South America","Oceania"];
 contregid = zeros(numel(regionnames),1);
 for cc = 1 : numel(continents)
     cont = continents(cc);
@@ -289,12 +289,13 @@ Aglobe  = 5.1007e14;                    % global surface area [m2]
 nodata_albedo = 2^15-1;                 % Albedo "nodata" value
 scale_albedo = 0.001;                   % Albedo scale value
 dm2C = 0.47;                            % Dry biomass to Carbon conversion (IPCC)
+GWP100 = 1.9;                           % GWP*100 for albedo to account for land/ocean response
 earthellipsoid = referenceEllipsoid('wgs84','m');
 albedostats = ["median","min","max"];
 reforestationopp = ["Walker","Griscom","Bastin"];
-allreforestationopp = cat(2,reforestationopp,"Globally");
+allreforestationopp = cat(2,reforestationopp,"CombinedOpp","Globally");
 offsetcat = ...                         % Albedo Offset categories 
-    [-10000,15,30,50,75,100,10000];  %  (we now reversed the sign to avoid double-negation)
+    [-10000,25,50,75,100,10000];  %  (we now reversed the sign to avoid double-negation)
 aothreshold = 50;
 seqcat = [-2000,-800:200:-200,-100,-40,40,100,200:200:800,2000];
 % seqcat = [-2000,-400,-200,-100,-40,40,100,200,400,2000];
@@ -326,16 +327,20 @@ BCredtoblue11 = [165,0,38;215,48,39;244,109,67;253,174,97;254,224,144;255,255,19
     224,243,248;171,217,233;116,173,209;69,117,180;49,54,149]/255;
 BCpurpletogreen8 = [118,42,131;153,112,171;194,165,207;231,212,232;217,240,211;166,219,160;90,174,97;27,120,55]/255;
 BCpurpletogreen6 = [118,42,131;175,141,195;231,212,232;217,240,211;127,191,123;27,120,55]/255;
+BCpurpletogreen4 = [123,50,148;194,165,207;166,219,160;0,136,55]/255;
 BCbrowntoteal6 = [140,81,10;216,179,101;246,232,195;199,234,229;90,180,172;1,102,94]/255;
-aocolorbar = flip(BCpurpletogreen6);
+aocolorbar = flip(cat(1,BCpurpletogreen6(1:3,:),BCpurpletogreen4(3:4,:)));
 aosenscolorbar = cat(1,lightgreyval,BCbrowntoteal6([1,2,3,5],:));
 co2colorbar = cat(1,[0.5312 0 0],BCredtoblue11,[0,0,0.5156]);
 co2colorbaror = redtobluecolorbar(seqcat,7,true,"redtoblue",false);
 laptopscreen = [1 31 1536 758];
-homemonitor = [240 895 1680 944];
+% homemonitor = [240 895 1680 944];
+homemonitor = [16 93 1654 850];
 workmonitor = [1 31 1920 1093];
 supercompmonitor = [1 31 2560 1333];
+newsupcmpmonitor = [256 271 2047 1026];
 ltppos = [0.019 0.019 0.8 0.95];
+lptmpos = [0.0426 0.019 0.8128 0.95];
 scmpos = [0.0426, 0.0190, 0.8344, 0.9060];
 scmposwm = [0.0426    0.0190    0.8194    0.9500];
 scmantpos = [0.0426, 0.0190, 0.8344, 0.95];

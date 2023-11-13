@@ -167,5 +167,29 @@ nodatacontinent = u8noval;
 save(sparameterfile,"nodatacontinent","nodatabiome","bioperblock","contperblock",'-append')
 
 
+% Add combined mask (Griscom,Walker, Bastin)
+% ******************************************
+for bb = 1 : nbblocks
+    if preswlk(bb) == false, continue; end
+    subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
+    load(subfilename,"selectedbastin","walkeroppcat","griscom")
+
+    wlkm = ismember(walkeroppcat,Wsc);
+    grim = griscom == 1;
+    combinedopp = wlkm + grim + selectedbastin > 0;
+
+    combinedoppclass = zeros(blocksize005,blocksize005,'uint8');
+    combinedoppclass(wlkm) = combinedoppclass(wlkm) + 100;
+    combinedoppclass(grim) = combinedoppclass(grim) + 10;
+    combinedoppclass(selectedbastin) = combinedoppclass(selectedbastin) + 1;
+
+    save(subfilename,"combinedopp","combinedoppclass",'-append')
+    strcat("Done with creating combined opportunity masks in block #",num2str(bb))
+
+    clear selectedbastin walkeroppcat griscom wlkm grim combinedopp combinedoppclass
+end
+
+
+
 
 

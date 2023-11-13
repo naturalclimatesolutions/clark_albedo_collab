@@ -1,6 +1,6 @@
-function CO2eq_TOA = ptradforcing(initiallandcover,finallandcover,...
+function [CO2eq_TOA,GWPRF] = ptradforcing(initiallandcover,finallandcover,...
     nosnowblacksky,nosnowwhitesky,snowcovblacksky,snowcovwhitesky,...
-    snowcover,diffuseradiation,kernelvalue,pixelarea,kernelstat)
+    snowcover,diffuseradiation,kernelvalue,pixelarea,kernelstat,gwp100,capgc)
 
 % FUNCTION ptradforcing: rafiative forcing at a particular pixel
 %   This function calculate the annual mean albedo-induced radiative forcing CO2 equivalent at
@@ -22,10 +22,15 @@ end
 if nargin < 11
     kernelstat = "median";
 end
+if nargin < 12
+    gwp100 = 1.9;
+end
+if nargin < 13
+    capgc = 400*2.13;                   % current base CO2 in atmos [Pg C]
+end
     
 ta = zeros(nmonths,nker);
 Aglobe  = 5.1007e14;                    % global surface area [m2]
-Ca_PgC  = 400*2.13;                     % current base CO2 in atmos [Pg C]
 
 
 for m = 1 : nmonths
@@ -60,8 +65,8 @@ end
 
 arf = squeeze(mean(ta,1,'omitnan'));
 glob = arf .* pixelarea ./ Aglobe;          % Global annual mean RF
-PgC_TOA = Ca_PgC .* exp(-1 .* glob ./ 5.35);% C02e (Pg C) (Change sign to make cooling positive)
-co2 = (PgC_TOA - Ca_PgC) .* 1e13 ./ pixelarea .* 44/12; % in MgCo2/ha
+PgC_TOA = capgc .* exp(-1 .* glob ./ 5.35);% C02e (Pg C) (Change sign to make cooling positive)
+co2 = (PgC_TOA - capgc) .* 1e13 ./ pixelarea .* 44/12; % in MgCo2/ha
 % CO2_2 = 1/0.89 .* arf .*10; checked that it is very similar to the other calculation...
 
 % Calculate kernel statistics
@@ -99,5 +104,7 @@ elseif sum(isnan(co2)) == nker
 else
     CO2eq_TOA = co2;
 end
+
+GWPRF = CO2eq_TOA .* gwp100;
 
 

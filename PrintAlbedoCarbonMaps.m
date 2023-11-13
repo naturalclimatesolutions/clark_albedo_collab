@@ -1,5 +1,6 @@
 % Print Albedo Carbon Maps
 % ************************
+% I now print them minimally and import them in illustrator to finalize
 
 % Prepare parameters
 % ******************
@@ -9,15 +10,17 @@ inputdataformat = "single";
 lowerresolution = 0.1;
 method = "mean";
 missinglandblock = 51;
-maps = ["RFmed005","WlkTCO2RF","NCIbase","AObase"];
-oppmaps = strcat(reforestationopp,"NCI");
-figurenumber = ["Fig1a_","Fig1b_","Fig1c_","FigS1_"];
+maps = ["GWPmed005","WlkTCO2RF","NCIbase","AObase"];
+oppmaps = cat(2,strcat(reforestationopp,"NCI"),"CombinedOppNCI");
+figurenumber = ["FigS1a_","FigS1b_","FigS1c_","FigS1d_"];
 hiresnames = ["AlbedoRadiativeForcing","WalkerCO2RFlim","NetClimateImpact","AlbedoOffset"];
-statname = ["AlbedoRF_AreaCountStats";"CarbonOnlyRFlimited_AreaCountStats";"GloballyNCI_AreaCountStats";...
+hiresoppmaps = ["AlbedoRadiativeForcing","WalkerCO2RFlim","NetClimateImpact","AlbedoOffset"];
+statname = ["AlbedoGWP_AreaCountStats";"CarbonOnlyRFlimited_AreaCountStats";"GloballyNCI_AreaCountStats";...
     "AlbedoOffset_AreaCountStats"];
-oppstatname = strcat(oppmaps,"_AreaCountStats");
 hrvarname = strings(numel(maps),1);
-oppfignumber = ["FigS3c_","FigS3a_","FigS3b_"];
+oppfignumber = ["Fig2e_","Fig2a_","Fig2c_",""];
+axeslabels = 0;
+arrows = false;
 load(ReforOppfname, statsarraylist{:})
 
 
@@ -31,6 +34,10 @@ switch computer
     case '6381'
         positions.figure = supercompmonitor;
         positions.axes = scmantpos;
+    case '8904'
+        positions.figure = [25 15 13.9960 4.6700];
+%         positions.figure = [239 295 2047 683];
+        positions.axes = [0.0426 0.019  0.8194 0.95];
 end
 
 
@@ -51,25 +58,28 @@ for ll = 1 : numel(maps)
     save(ReforOppfname,lrvarname{:},'-append')
     
     if contains(input,"AO")
+        lowresmap(lowresmap<offsetcat(1)) = offsetcat(1);
+        lowresmap(lowresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
         thiscolorbar = aocolorbar;
         thesecategories = offsetcat;
         axislegend = "Albedo Offset [%]";
-        arrows = false;
+%         arrows = false;
     else
         thiscolorbar = co2colorbar;
         thesecategories = seqcat;
         axislegend = 'Mg CO_2e ha^-^1';
-        arrows = true;
+%         arrows = true;
     end
-    
+
+    thisfiguretype = "two panels";
     eval(strcat("prctvals =",statname(ll),";"))
     
-    % Pring jpeg figure
-    figurename = strcat(figuredir,figurenumber(ll),hiresnames(ll),".jpeg");
+    % Pring figure
+    figurename = strcat(figuredir,figurenumber(ll),hiresnames(ll));
     figure(ll); clf
-    h = albedofigure(lowresmap,thesecategories,lats,lons,figurename,positions,prctvals,...
-    coastlat,coastlon,axislegend,thiscolorbar,arrows);
-    
+    h = albedofigure(lowresmap,thesecategories,lats,lons,figurename,thisfiguretype,thiscolorbar,...
+    prctvals,coastlat,coastlon,axislegend,false);
+
     clear lowresmap highresmap
 end
 
@@ -105,10 +115,16 @@ for ll = 1 : numel(oppmaps)
             mask = "griscom";
         case "BastinNCI"
             mask = "selectedbastin";
+        case "CombinedOppNCI"
+            mask = "combinedopp";
     end
-    [lowresmap,~] = printmapprep("NCIbase",fileroot,preswlk,latlon005,inputdataformat,...
+    [lowresmap,highresmap] = printmapprep("NCIbase",fileroot,preswlk,latlon005,inputdataformat,...
         rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot,mask);
 
+
+    % Export Geotiff (high-resolution) map
+    fname = strcat(resultmaps,oppname,"_005.tif");
+    geotiffwrite(fname,highresmap,R005,'TiffTags',cmptag);
 
     lrvarname = strcat(oppname,"lowres");
     eval(strcat(lrvarname," = lowresmap;"));
@@ -116,15 +132,16 @@ for ll = 1 : numel(oppmaps)
     
     thiscolorbar = co2colorbar;
     thesecategories = seqcat;
-    axislegend = 'Mg CO_2_e ha^-^1';
+    thisfiguretype = "six panels";
+    axislegend = 'Mg CO_2e ha^-^1';
     
     eval(strcat("prctvals =",oppstatname(ll),";"))
     
     % Pring jpeg figure
-    figurename = strcat(figuredir,oppfignumber(ll),oppname,".jpeg");
+    figurename = strcat(figuredir,oppfignumber(ll),oppname);
     figure(ll); clf
-    h = albedofigure(lowresmap,thesecategories,lats,lons,figurename,positions,prctvals,...
-    coastlat,coastlon,axislegend,thiscolorbar,true);
+    h = albedofigure(lowresmap,thesecategories,lats,lons,figurename,thisfiguretype,thiscolorbar,...
+    prctvals,coastlat,coastlon,axislegend,false);
     
     clear lowresmap highresmap
 end

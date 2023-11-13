@@ -27,6 +27,7 @@ Bsseqtables = replace(Bsareatables,"Areas","JustCarbon");
 
 negco2 = offsetcat(1:nocat)>=100;
 
+
 % Calculate Statistics
 % ********************
 for bb = 1 : nbblocks
@@ -35,11 +36,11 @@ for bb = 1 : nbblocks
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
     load(subfilename,"biome","continent","pixarea","selectedbastin",...
-        "walkeroppcat","griscom","landmask")
-    load(radforfname,"RFmed005")
+        "walkeroppcat","griscom","landmask","combinedopp")
+    load(radforfname,"GWPmed005")
     statfilename = strcat(regoutputfiles,"ROstats005_",num2str(bb),".mat");
 
-    if sum(isnan(RFmed005),'all') == blocksize005^2
+    if sum(isnan(GWPmed005),'all') == blocksize005^2
         mispix = zeros(nbiomes+1,nopp);
         for oo = 1 : nopp
             refopp = allreforestationopp(oo);
@@ -52,6 +53,8 @@ for bb = 1 : nbblocks
                     opmask = griscom == 1;
                 case "Bastin"
                     opmask = selectedbastin;
+                case "CombinedOpp"
+                    opmask = combinedopp;
             end
             if sum(opmask,'all') > 0
                 thisbio = unique(biome(opmask));
@@ -70,7 +73,7 @@ for bb = 1 : nbblocks
             MissRFareas = MissRFareas + mispix;
         end
         strcat("Done with sensitivity AO/NCI statistics block #",num2str(bb)," - no RF data")
-        clear RFmed005 
+        clear GWPmed005 combinedopp
         clear("biome","continent","pixarea","selectedbastin","walkeroppcat","griscom","landmask")
         continue
     end
@@ -89,6 +92,8 @@ for bb = 1 : nbblocks
                 masks(:,:,oo) = griscom == 1;
             case "Bastin"
                 masks(:,:,oo) = selectedbastin;
+            case "CombinedOpp"
+                masks(:,:,oo) = combinedopp;
         end
     end
 
@@ -131,7 +136,7 @@ for bb = 1 : nbblocks
 
     save(statfilename,Bsareatables{:},Bsco2tables{:},Bsseqtables{:},'-append')
     
-    clear(AOarrays{:},NCIarrays{:},'RFmed005',"biome","continent",...
+    clear(AOarrays{:},NCIarrays{:},'GWPmed005',"biome","continent",...
         "pixarea","WalkertotCO2","selectedbastin","walkeroppcat","griscom","landmask")
     clear(Bsareatables{:},Bsco2tables{:},Bsseqtables{:})
     
@@ -172,17 +177,17 @@ for bb = 1 : nbblocks
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
     statfilename = strcat(regoutputfiles,"ROstats005_",num2str(bb),".mat");
     load(subfilename,"landmask","pixarea")
-    load(radforfname,'RFmed005')
+    load(radforfname,'GWPmed005')
     
     AOsensmap = ones(size(landmask),'uint8') .* u8noval;    
     AOsensmap(landmask) = 0;
     block_sensarreas50 = zeros(5,1);
     
-    if sum(isnan(RFmed005),'all') == blocksize005^2
+    if sum(isnan(GWPmed005),'all') == blocksize005^2
         block_sensarreas50(1) = sum(pixarea(landmask),'all','omitnan');
         sensarreas50 = sensarreas50 + block_sensarreas50;
         save(statfilename,"AOsensmap","block_sensarreas50",'-append')
-        clear RFmed005 landmask subfilename AOsensmap statfilename radforfname block_sensarreas50
+        clear GWPmed005 landmask subfilename AOsensmap statfilename radforfname block_sensarreas50
         continue
     end
     
@@ -207,7 +212,7 @@ for bb = 1 : nbblocks
     strcat("Done with creating a sensitivity map in block #",num2str(bb))
     save(statfilename,"AOsensmap","block_sensarreas50",'-append')
     clear(AOarrays{:})
-    clear RFmed005 landmask subfilename AOsensmap statfilename radforfname block_sensarreas50
+    clear GWPmed005 landmask subfilename AOsensmap statfilename radforfname block_sensarreas50
     clear ss name map ss
 end       
 

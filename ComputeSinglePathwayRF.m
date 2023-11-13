@@ -167,7 +167,7 @@ for rr = 1 : nblocks
                     PgC_TOA = Ca_PgC .* exp(-1 .* glob ./ 5.35);% CO2e (Pg C)
                     CO2eq_TOA = (PgC_TOA - Ca_PgC) .* 1e13 ...  % in tonnes CO2 ha-2
                         ./ sm_pixelarea(i,j) .* 44/12;
-                    sm_pathwayco2(i,j,:,ll) = CO2eq_TOA;
+                    sm_pathwayco2(i,j,:,ll) = CO2eq_TOA .* GWP100; % accounting for land/ocean response
 
 
                     % Calculate kernel's statistics

@@ -1,5 +1,5 @@
-function h = albedofigure(data,categories,latitudes,longitudes,figurename,positions,prctvals,...
-    coastlat,coastlon,axislegend,mapcolors,climatearrows,lonflag)
+function h = albedofigure(data,categories,latitudes,longitudes,figurename,figuretype,mapcolors,...
+    prctvals,coastlat,coastlon,axislegend,climatearrows)
 
 % ALBEDOFIGURE
 %   This function is used to create a Robinson projection world map of "data". It has the option of
@@ -30,33 +30,43 @@ function h = albedofigure(data,categories,latitudes,longitudes,figurename,positi
 % Created by Natalia Hasler, Clark University -  September 2022
 
 
-if nargin < 13
-    if contains(figurename,'b_') || contains(figurename,'c_')
-        lonflag = false;
+if nargin < 12
+    if strcmp(figuretype,"analysis")
+        climatearrows = true;
     else
-        lonflag = true;
+        climatearrows = false;
     end
 end
-if nargin < 12
-    climatearrows = true;
-end   
 if nargin < 11
-    mapcolors = redtobluecolorbar(categories);
-end
-if nargin < 10
     axislegend = 'Mg CO_2e ha^-^1';
 end
-if nargin < 8
+if nargin < 10
     load coastlines %#ok<LOAD> 
 end
-if nargin < 6
-    figpos = [1 31 2560 1333];
-    axpos = [0.0426 0.0190 0.8344 0.9060];
+if contains(figuretype,"analysis")
+    figpos = [239 295 2047 683];
+    figunits = 'pixels';
+    lgfont = 24;
+    smfont = 18;
+    axpos = [0.0426 0.019 0.8344 0.9060];
 else
-    figpos = positions.figure;
-    axpos = positions.axes;
+    figunits = 'centimeters';
+    axpos = [0.0426 0.04 0.8344 0.9060];
+    if contains(figuretype,"six")
+        lgfont = 28;
+        smfont = 20;
+        figpos = [6 7 55.984 18.68];
+    elseif contains(figuretype,"two")
+        %         figpos = [6 7 53.9113 18];
+        figpos = [6 7 57.9 19.3302];
+        lgfont = 21;
+        smfont = 15;
+    else
+        figpos = [25 15 8.9 2.9779];
+    end
 end
 
+% 
 cllist = ["uint8","int8","uint16","int16","uint32","int32","single","double","logical"];
 mislist = [2^8-1,-2^7,2^16-1,-2^15,2^32-1,-2^31,nan,nan,false];
 
@@ -109,15 +119,15 @@ end
 
 clf
 h = gcf;
-h.Units = 'pixels';
+h.Units = figunits;
 h.Position = figpos;
-if lonflag
+if contains(figuretype,"analysis")
     axesm('MapProjection','robinson','Frame','on','MLineLocation',20,'PLineLocation',20,...
         'Grid','on','MeridianLabel','on','MLabelLocation',60,'ParallelLabel','on',...
         'PLabelLocation',20,'LabelRotation','on','FontSize',18);
 else
-    axesm('MapProjection','robinson','Frame','on','MLineLocation',20,'PLineLocation',20,...
-        'Grid','on','ParallelLabel','on','PLabelLocation',20,'FontSize',18);
+    axesm('MapProjection','robinson','Frame','on','FLineWidth',0.2,...
+        'Grid','off','MapLatLimit',[-60 75]);
 end
 
 pcolorm(latitudes,longitudes,catdata)
@@ -127,24 +137,46 @@ colormap(mapcolors)
 c = colorbar;
 c.Ticks = 1:length(categories);
 c.TickLabels = catlabels;
-c.FontSize = 25;
-c.Label.String = axislegend;
+c.FontSize = lgfont;
+if contains(figuretype,"analysis")
+    c.Label.String = axislegend;
+end
 ax = gca;
 ax.Position = axpos;
+if ~contains(figuretype,"analysis")
+    ax.PlotBoxAspectRatioMode = 'manual';
+    ax.PlotBoxAspectRatio = [3 1.1 1];
+end
 cpos = c.Position;
 int = cpos(4) / (numel(categories)-1);
 if prctflag
-    x = cpos(1) - ([2,1.5]*cpos(3));
+%     x = cpos(1) - ([2,1.5]*cpos(3));
+    x = cpos(1) - ([1.6,1.2]*cpos(3));
     y = cpos(2) + (prctbins-1+inbinpos)*int;
     annotation('line',[x(2) x(2)],[y(1) y(numel(y))])
     for ii = 1 : numel(prctscale)
-        if prctscale(ii) == 50, lw = 1.5; else, lw = 0.5; end
+        if prctscale(ii) == 50, lw = 2; else, lw = 0.5; end
         annotation('textarrow',[x(1) x(2)],[y(ii) y(ii)],'String',...
-            num2str(round(prctvals(ii))),'HeadStyle','none','FontSize',20,'LineWidth',lw)
+            num2str(round(prctvals(ii))),'HeadStyle','none','FontSize',smfont,'LineWidth',lw)
 %             'VerticalAlignment',vertal(ii))        
     end
-    annotation('line',[x(2) x(2)],[y(prctscale==25) y(prctscale==75)],'LineWidth',1.5)
+    annotation('line',[x(2) x(2)],[y(prctscale==25) y(prctscale==75)],'LineWidth',2)
 end
+c.Position(1) = cpos(1) + 2.5*cpos(3);
+% c.Position(3) = cpos(3)/2;
+cpos = c.Position;
+if contains(axislegend,"CO_2e")
+    cnums = round(categories./44*12);
+    clabels = num2cell(cnums(2:numel(categories)-1));
+    x = cpos(1) - ([.2,0]*cpos(3));
+    y = cpos(2) + (0:numel(categories)-1)*int;
+    for i = 1 : numel(clabels)
+        ii = i+1;
+        annotation('textarrow',[x(1) x(2)],[y(ii) y(ii)],'String',clabels(i),...
+            'HeadStyle','none','FontSize',smfont,'FontAngle','italic','LineWidth',.2)
+    end
+end
+
 if climatearrows
     yclwm = [.21 .06]; yclcl = [.78 .93];
     ha = ["center","center"];
@@ -169,7 +201,11 @@ if climatearrows
     annotation('textarrow',[.95 .95],yclcl,'String',"climate cooling",'FontSize',25,...
         'TextRotation',90,'VerticalAlignment','top','HorizontalAlignment',ha(2))
 end
-print(figurename,"-djpeg")
+if ~contains(figuretype,"analysis")
+    print(strcat(figurename,"-AI.jpg"),"-djpeg")
+else
+    print(strcat(figurename,".jpg"),"-djpeg")
+end
 
 
 % Formulas for tick positions
