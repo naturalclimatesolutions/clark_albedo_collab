@@ -32,38 +32,15 @@ for ll = 1 : numel(mlnames)
     eval(strcat(lrvarname," = lowresmap;"));
 
     save(ReforOppfname,lrvarname{:},'-append')
-
-    eval(strcat("landcoverindex = ",mlindnames(ll),";"))
-    nlc = numel(landcoverindex); extent = nlc+1;
     
     % Pring jpeg figure
     figure(ll); clf
-    mlval = single(lowresmap);
-    mlval(mlval==u8noval) = nan;
-    for lc = 1 : nlc
-        mlval(mlval==landcoverindex(lc)) = lc;
-    end
-    h = gcf;
-    h.Units = 'pixels';
-    h.Position = laptopscreen;
-    axesm('MapProjection','robinson','Frame','on','MLineLocation',20,'PLineLocation',20,...
-        'Grid','on','MeridianLabel','on','MLabelLocation',60,'ParallelLabel','on',...
-        'PLabelLocation',20,'LabelRotation','on','FontSize',18);
-    pcolorm(lats,lons,mlval)
-    plotm(coastlat,coastlon,'Color','Black')
-    mlfcm = [lightgreyval;reordcbp(landcoverindex,:)];
-    colormap(mlfcm)
-    c = colorbar;
-    c.Ticks = 0+(extent-1)/(2*extent):(extent-1)/extent:nlc;
-    c.TickLabels = cellstr(["Not defined";IGBPAbbBio(landcoverindex)]);
-    c.FontSize = 25;
-    ax = gca;
-    ax.Position = ltppos;
-%     ax.Title.FontSize = 24;
-%     ax.Title.String = mllongnames(ll);
-    fname = strcat(figuredir,erase(mllongnames(ll)," "),".jpg");
-    print(fname,"-djpeg")
-    
+    figuretype = "two panels";
+    mapcolors = reordcbp;
+    fname = strcat(figuredir,erase(mllongnames(ll)," "));
+    albedofigure(lowresmap,IGBPAbbBio,lats,lons,fname,figuretype,mapcolors,...
+        [],coastlat,coastlon," ",false);
+
     clear lowresmap highresmap
 end
 

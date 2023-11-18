@@ -90,8 +90,8 @@ save(sparameterfile,"Wsc",'-append')
 % ************************************************
 albedostats = ["med","min","max"];
 bdnames = ["base","minalb","maxalb"];   % these will be minimum and maximum effect, which will differ from RFmin and RFmax
-AOarrays = strcat("AO",bdnames);
-NCIarrays = strcat("NCI",bdnames);
+AOarrays = strcat("newAO",bdnames);
+NCIarrays = strcat("newNCI",bdnames);
 for bb = 1 : nbblocks
     if preswlk(bb) == false, continue; end
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
@@ -120,7 +120,7 @@ for bb = 1 : nbblocks
         end
         WalkertotCO2 = wlk;
         WlkTCO2RF = wlk;
-        WlkTCO2RF(isnan(RFmed005)) = nan;
+        WlkTCO2RF(isnan(GWPmed005)) = nan;
         save(radforfname,AOarrays{:},NCIarrays{:},"WalkertotCO2","WlkTCO2RF",'-append')
         clear(AOarrays{:},NCIarrays{:})
         strcat("Done with calculating low/high bounds of AO and NCI in block #",num2str(bb))

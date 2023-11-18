@@ -114,14 +114,7 @@ latlr = latlim005(2) - lowerresolution/2 : -lowerresolution : latlim005(1) + low
 lonlr = lonlim005(1) + lowerresolution/2 : lowerresolution : lonlim005(2) - lowerresolution/2;
 [lons,lats] = meshgrid(lonlr,latlr);
 
-switch computer
-    case '7264'
-        positions.figure = workmonitor;
-        positions.axes = scmposwm;
-    case '6381'
-        positions.figure = supercompmonitor;
-        positions.axes = scmantpos;
-end
+thisfiguretype = "two panels";
 
 for ll = 1 : numel(trunc)
     input = trunc(ll);
@@ -140,57 +133,61 @@ for ll = 1 : numel(trunc)
     % Pring jpeg figure
     figurename = strcat(figuredir,input,".jpeg");
     figure(ll); clf
-    h = albedofigure(lowresmap,seqcat,lats,lons,figurename,positions,prctvals,...
-    coastlat,coastlon,axislegend,co2colorbar,true);
+    h = albedofigure(lowresmap,seqcat,lats,lons,figurename,thisfiguretype,...
+    co2colorbar,prctvals,coastlat,coastlon,axislegend,true);
     
     clear lowresmap highresmap
 end
 
+
+
 % Alternative maps (only look into 85% for now)
 % ****************
+intype = ["NCI","AO"];
 vars.base = "NCIbase";
 vars.modified = "NCIwlk85";
-vars.method = "difference";
+copmmet = ["difference","percent"];
+thisfiguretype = "two panels";
+for tt = 1 : numel(intype)
+    vars.base = strcat(intype(tt),"base");
+    vars.modified = strcat(intype(tt,"wlk85"));
+    for mm = 1 : numel(copmmet)
+        vars.method = copmmet(mm);
+        [lowresmap,~] = printmapprep(vars,fileroot,preswlk,latlon005,inputdataformat,...
+            rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
 
-[lowresmap,~] = printmapprep(vars,fileroot,preswlk,latlon005,inputdataformat,...
-    rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
+        % I should not have to do this, but I don't have time now to seek out the few pixels that
+        % have minimal positiva values
+        lowresmap(lowresmap > 0) = 0;
 
-axislegend = 'Mg CO_2e ha^-^1';
-figurename = strcat(figuredir,"Walker85%NCIDiff.jpeg");
-figure(20); clf
-h = albedofigure(lowresmap,seqcat,lats,lons,figurename,positions,[],...
-    coastlat,coastlon,axislegend,co2colorbar,false);
+        lrvarname = strcat("NCIWlk85",copmmet(mm),"lowres");
+        eval(strcat(lrvarname," = lowresmap;"));
+        save(ReforOppfname,lrvarname,'-append')
 
-NCIWlk85Difflowres = lowresmap;
+        if strcmp(copmmet,"difference")
+            if strcmp(intype,"NCI")
+                thesecat = seqcat;
+                thiscolorbar = co2colorbar;
+                axislegend = 'Mg CO_2e ha^-^1';
+            else
+                thesecat = offsetcat;
+                thiscolorbar = aocolorbar;
+                axislengend = "%";
+            end
+        else
+            axislegend = 'Percent Differences [%]';
+            thesecat = [-1000,-50,-25,-10,-5,0];
+            thiscolorbar = flip([254,235,226;251,180,185;247,104,161;197,27,138;122,1,119]/255);
+%             thiscolorbar = flip([254,235,226;252,197,192;250,159,181;...
+%                 247,104,161;221,52,151;174,1,126;122,1,119]/255);
+        end
 
-vars.method = "percent";
-[lowresmap,~] = printmapprep(vars,fileroot,preswlk,latlon005,inputdataformat,...
-    rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
-
-axislegend = '% NCI Differences';
-figurename = strcat(figuredir,"FigS7_Trunc85WalkerNCI%Diff.jpeg");
-figure(21); clf
-thesecat = [-1000,-50,-30,-10,-6,-4,-2,1000];
-catcolbar = flip([254,235,226;252,197,192;250,159,181;247,104,161;221,52,151;174,1,126;122,1,119]/255);
-h = albedofigure(lowresmap,thesecat,lats,lons,figurename,positions,[],...
-    coastlat,coastlon,axislegend,catcolbar,false);
-
-NCIWlk85PercDifflowres = lowresmap;
-
-vars.base = "AObase";
-vars.modified = "AOwlk85";
-vars.method = "difference";
-
-[lowresmap,~] = printmapprep(vars,fileroot,preswlk,latlon005,inputdataformat,...
-    rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
-
-axislegend = 'Albedo Offsert Differences [%]';
-figurename = strcat(figuredir,"Walker85%AODiff.jpeg");
-figure(22); clf
-h = albedofigure(lowresmap,thesecat,lats,lons,figurename,positions,[],...
-    coastlat,coastlon,axislegend,catcolbar,false);
-
-AOWlk85Difflowres = lowresmap;
+        figurename = strcat(figuredir,"Walker85",intype(tt),"Diff",copmmet(mm));
+        figure(20+tt+mm); clf
+        h = albedofigure(lowresmap,thesecat,lats,lons,figurename,thisfiguretype,thiscolorbar,...
+            [],coastlat,coastlon,axislegend,false);
+    end
+end
 
 
 % Export Truncated stats in opportunity tables

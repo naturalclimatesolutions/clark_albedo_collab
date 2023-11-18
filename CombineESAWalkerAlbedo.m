@@ -6,22 +6,23 @@ newagb = strcat("walker",num2str(trint));
 walkeresatrunc = strcat("walkertot",num2str(trint));
 AOesatrmaps = strcat("AOwlk",num2str(trint));
 NCIesatrmaps = strcat("NCIwlk",num2str(trint));
-infvals = [offsetcat(1),offsetcat(numel(offsetcat))];
 reducedesa = esaperecoid(:,:,ismember(despct,trint));
+aolowcap = offsetcat(1);
+aohighcap = offsetcat(numel(offsetcat));
 for bb = 1 : nbblocks
     tic
     if preswlk(bb) == false, continue; end
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
     radforfname = strcat(regoutputfiles,"RadForcing005_",num2str(bb),".mat");
     load(subfilename,"walkerdatamask")
-    load(radforfname,"RFmed005","WalkertotCO2")
-    if sum(isnan(RFmed005),'all') == blocksize005^2
+    load(radforfname,"GWPmed005","WalkertotCO2")
+    if sum(isnan(GWPmed005),'all') == blocksize005^2
         aoflag = false;
     else
         aoflag = true;
-        alb = RFmed005;
+        alb = GWPmed005;
     end
-    clear RFmed005
+    clear GWPmed005
     if presbio(bb) == false
         map = nan(blocksize005,blocksize005,'single');
         map(walkerdatamask) = 0;
@@ -36,11 +37,9 @@ for bb = 1 : nbblocks
 
         save(radforfname,walkeresatrunc{:},'-append')
         if aoflag == true
-            pos = alb>0;
-            neg = alb<=0;
             ao = nan(blocksize005,blocksize005,'single');
-            ao(neg) = infvals(2);
-            ao(pos) = infvals(1);
+            ao(alb>0) = aolowcap;
+            ao(alb<0) = aohighcap;
             ao(walkerdatamask==0) = nan;
             nci = alb;
             nci(walkerdatamask==0) = nan;
@@ -123,12 +122,14 @@ for bb = 1 : nbblocks
             % Calculate AO and NCI where available
             if aoflag == true
                 ao = (-alb ./ tot) .* 100;
-                posrf = alb>0;
-                kinf = isinf(ao);       % isinf does not differenciate -inf and inf ...
-                kneginf = kinf; kneginf(logical(1-posrf)) = false;
-                kinf(posrf) = false;
-                ao(kinf) = infvals(2);    %#ok<PFBNS>
-                ao(kneginf) = infvals(1);
+                ao(ao<offsetcat(1)) = offsetcat(1);
+                ao(ao>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
+%                 posrf = alb>0;
+%                 kinf = isinf(ao);       % isinf does not differenciate -inf and inf ...
+%                 kneginf = kinf; kneginf(logical(1-posrf)) = false;
+%                 kinf(posrf) = false;
+%                 ao(kinf) = infvals(2);    %#ok<PFBNS>
+%                 ao(kneginf) = infvals(1);
                 nci = alb + tot;
                 AOtrunc(:,:,mm) = ao;
                 NCItrunc(:,:,mm) = nci;

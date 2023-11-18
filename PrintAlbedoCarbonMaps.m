@@ -12,7 +12,7 @@ method = "mean";
 missinglandblock = 51;
 maps = ["GWPmed005","WlkTCO2RF","NCIbase","AObase"];
 oppmaps = cat(2,strcat(reforestationopp,"NCI"),"CombinedOppNCI");
-figurenumber = ["FigS1a_","FigS1b_","FigS1c_","FigS1d_"];
+figurenumber = ["FigS1a_","FigS1b_","Fig1a_","Fig1b_"];
 hiresnames = ["AlbedoRadiativeForcing","WalkerCO2RFlim","NetClimateImpact","AlbedoOffset"];
 hiresoppmaps = ["AlbedoRadiativeForcing","WalkerCO2RFlim","NetClimateImpact","AlbedoOffset"];
 statname = ["AlbedoGWP_AreaCountStats";"CarbonOnlyRFlimited_AreaCountStats";"GloballyNCI_AreaCountStats";...
@@ -23,22 +23,9 @@ axeslabels = 0;
 arrows = false;
 load(ReforOppfname, statsarraylist{:})
 
-
 latlr = latlim005(2) - lowerresolution/2 : -lowerresolution : latlim005(1) + lowerresolution/2;
 lonlr = lonlim005(1) + lowerresolution/2 : lowerresolution : lonlim005(2) - lowerresolution/2;
 [lons,lats] = meshgrid(lonlr,latlr);
-switch computer
-    case '7264'
-        positions.figure = workmonitor;
-        positions.axes = scmposwm;
-    case '6381'
-        positions.figure = supercompmonitor;
-        positions.axes = scmantpos;
-    case '8904'
-        positions.figure = [25 15 13.9960 4.6700];
-%         positions.figure = [239 295 2047 683];
-        positions.axes = [0.0426 0.019  0.8194 0.95];
-end
 
 
 % Print global maps
@@ -48,6 +35,13 @@ for ll = 1 : numel(maps)
     [lowresmap,highresmap] = printmapprep(input,fileroot,preswlk,latlon005,inputdataformat,...
         rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
     
+    if contains(input,"AO")
+        lowresmap(lowresmap<offsetcat(1)) = offsetcat(1);
+        lowresmap(lowresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
+        highresmap(highresmap<offsetcat(1)) = offsetcat(1);
+        highresmap(highresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
+    end
+
     % Export Geotiff (high-resolution) map
     fname = strcat(resultmaps,hiresnames(ll),"_005.tif");
     geotiffwrite(fname,highresmap,R005,'TiffTags',cmptag);
@@ -55,20 +49,16 @@ for ll = 1 : numel(maps)
     lrvarname = strcat(input,"lowres");
     eval(strcat(lrvarname," = lowresmap;"));
 
-    save(ReforOppfname,lrvarname{:},'-append')
+    save(ReforOppfname,lrvarname,'-append')
     
     if contains(input,"AO")
-        lowresmap(lowresmap<offsetcat(1)) = offsetcat(1);
-        lowresmap(lowresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
         thiscolorbar = aocolorbar;
         thesecategories = offsetcat;
         axislegend = "Albedo Offset [%]";
-%         arrows = false;
     else
         thiscolorbar = co2colorbar;
         thesecategories = seqcat;
         axislegend = 'Mg CO_2e ha^-^1';
-%         arrows = true;
     end
 
     thisfiguretype = "two panels";

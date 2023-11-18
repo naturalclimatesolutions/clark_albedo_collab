@@ -153,9 +153,9 @@ for bb = 1 : numel(datablock)
             case "difference"
                 data = vmod - vbase;
             case "percent"
-                data = (vmod - vbase) ./ vbase .*100;
+                data = (vmod - vbase) ./ abs(vbase) .*100;
             case "proportion"
-                data = (vmod - vbase) ./ vbase;
+                data = (vmod - vbase) ./ abs(vbase);
             otherwise
                 error("Do not know this method")
         end

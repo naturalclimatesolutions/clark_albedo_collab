@@ -3,15 +3,13 @@
 
 % Prepare Arrays
 % **************
-bdnames = ["minalb";"base";"maxalb"];
-dum = strcat("AO",bdnames); % Now only calculate stats by AO bins ...
 nopp = numel(allreforestationopp);
 Wsc = WlkClassID(contains(WlkClassDef,"R/"));
 ncont = numel(continents);
 continentlist = 1 : ncont;
-sensareatables = strcat("AreasbyBiome_",dum);
-sensco2tables = strcat("TotalCO2byBiome_",dum);
-sensseqtables = strcat("JustCarbonbyBiome_",dum);
+sensareatables = strcat("AreasbyBiome_",AOarrays);
+sensco2tables = strcat("TotalCO2byBiome_",AOarrays);
+sensseqtables = strcat("JustCarbonbyBiome_",AOarrays);
 MissRFareas = zeros(nbiomes+1,nopp);
 
 aoarray = zeros(nbiomes,nocat,nopp,ncont+1);
@@ -140,7 +138,7 @@ for bb = 1 : nbblocks
         "pixarea","WalkertotCO2","selectedbastin","walkeroppcat","griscom","landmask")
     clear(Bsareatables{:},Bsco2tables{:},Bsseqtables{:})
     
-    strcat("Done with sensitivity AO/NCI statistics block #",num2str(bb))
+    strcat("Done with opportunity map AO/NCI statistics block #",num2str(bb))
     eltime = toc;
     if eltime > 120
         h = floor(eltime/3600);
@@ -163,6 +161,7 @@ save(sparameterfile,"sensareatables","sensco2tables","sensseqtables","bdnames",'
 sensarreas50 = zeros(5,1);
 sensorder = ["maxalb","base","minalb"];
 misbl = 51;
+sensitivitycategories = 0:4;
 for bb = 1 : nbblocks
     if preswlk(bb) == false && ~ismember(bb,misbl)
         continue
@@ -202,7 +201,7 @@ for bb = 1 : nbblocks
         AOsensmap(map >= aothreshold) = numel(sensorder)+1-ss;
     end
 
-    for ss = 0 : 4
+    for ss = sensitivitycategories
         kk = AOsensmap == ss;
         block_sensarreas50(ss+1) = sum(pixarea(kk),'all','omitnan');
     end

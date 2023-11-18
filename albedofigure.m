@@ -1,5 +1,5 @@
 function h = albedofigure(data,categories,latitudes,longitudes,figurename,figuretype,mapcolors,...
-    prctvals,coastlat,coastlon,axislegend,climatearrows)
+    prctvals,coastlat,coastlon,axislegend,climatearrows,catlabels)
 
 % ALBEDOFIGURE
 %   This function is used to create a Robinson projection world map of "data". It has the option of
@@ -38,7 +38,11 @@ if nargin < 12
     end
 end
 if nargin < 11
-    axislegend = 'Mg CO_2e ha^-^1';
+    if isnumeric(categories)
+        axislegend = 'Mg CO_2e ha^-^1';
+    else
+        axislegend = " ";
+    end
 end
 if nargin < 10
     load coastlines %#ok<LOAD> 
@@ -51,7 +55,8 @@ if contains(figuretype,"analysis")
     axpos = [0.0426 0.019 0.8344 0.9060];
 else
     figunits = 'centimeters';
-    axpos = [0.0426 0.04 0.8344 0.9060];
+%     axpos = [0.0426 0.04 0.8344 0.9060];
+    axpos = [0.021 0.04 0.8344 0.9060];
     if contains(figuretype,"six")
         lgfont = 28;
         smfont = 20;
@@ -69,25 +74,72 @@ end
 % 
 cllist = ["uint8","int8","uint16","int16","uint32","int32","single","double","logical"];
 mislist = [2^8-1,-2^7,2^16-1,-2^15,2^32-1,-2^31,nan,nan,false];
+lightgreyval = [.9,.9,.9];
 
 dataclass = class(data);
 nodatavalue = mislist(strcmp(cllist,dataclass));
 data = double(data);
-[l,c] = size(data); onedimdata = reshape(data,[l*c,1]);
-
 data(data==nodatavalue) = NaN;
-catdata = discretize(data,categories);
-catlabels = num2cell(categories);
-catlabels(1) = num2cell(strcat("< ",num2str(categories(2))));
-catlabels(numel(categories)) = num2cell(strcat("> ",num2str(categories(numel(categories)-1))));
+[l,c] = size(data); onedimdata = reshape(data,[l*c,1]);
+ncat = numel(categories);
+caxisflag = false;
 
-prctscale = [5,10,25,50,75,90,95];
-if nargin < 7 || numel(prctvals)==0
-    prctvals = prctile(onedimdata,prctscale);   % with lots of nan, it works better in vector form
+if exist("catlabels",'var')
+    if sum(contains(catlabels,"\fontsize{")) > 1
+        fslines = find(contains(catlabels,"\fontsize{"));
+        ifs = extractBetween(catlabels(fslines(1)),"\fontsize{","}");
+        eval(strcat("ofs = '\fontsize{",ifs,"}';"))
+        nfs = strcat("\fontsize{",num2str(smfont),"}");
+        catlabels = replace(catlabels,ofs,nfs);
+    end
+    catlabels = cellstr(catlabels);
 end
 
-sclimits = prctile(onedimdata,[1,99]);
-fakecats = categories; fakecats(1) = sclimits(1); fakecats(numel(fakecats)) = sclimits(2);
+if isa(categories,'string')
+    lc = setdiff(unique(data(isfinite(data))),0);
+    nlc = numel(lc); extent = nlc+1;
+    catdata = data;
+    for ii = 1 : nlc
+        catdata(data==lc(ii)) = ii;
+    end
+    mapcolors = mapcolors(lc,:);
+    if ~exist("catlabels",'var')
+        catlabels = categories(lc);
+        if ~isempty(find(data==0,1))
+            catlabels = cat(1,"Not defined",catlabels);
+            mapcolors = cat(1,lightgreyval,mapcolors);
+        end
+        catlabels = cellstr(catlabels);
+    end
+    cticks = nlc/(2*extent):nlc/extent:nlc;
+end
+
+
+if isnumeric(categories)
+    if numel(unique(data(isfinite(data)))) > ncat
+        catdata = discretize(data,categories);
+        cticks = 1 : ncat;
+        caxisflag = true;
+    else
+        catdata = data;
+        cticks = ncat/(2*(ncat+1)):(ncat-1)/ncat:ncat;
+    end
+    if ~exist("catlabels",'var')
+        catlabels = num2cell(categories);
+        catlabels(1) = num2cell(strcat("< ",num2str(categories(2))));
+        if categories(numel(categories)) ~= 0
+            catlabels(numel(categories)) = num2cell(strcat("> ",num2str(categories(numel(categories)-1))));
+        end
+    end
+
+    prctscale = [5,10,25,50,75,90,95];
+    if nargin < 7 || numel(prctvals)==0
+        prctvals = prctile(onedimdata,prctscale);   % with lots of nan, it works better in vector form
+    end
+
+    sclimits = prctile(onedimdata,[1,99]);
+    fakecats = categories; fakecats(1) = sclimits(1); fakecats(numel(fakecats)) = sclimits(2);
+end
 if numel(prctvals) > 1
     prctflag = true;
     prctbins = discretize(prctvals,categories);
@@ -95,7 +147,11 @@ if numel(prctvals) > 1
     for ii = 1 : numel(prctvals)
         ind = prctbins(ii);
         if ismember(prctvals(ii),[categories(1),categories(numel(categories))])
-            val = sign(prctvals(ii)) * inf;
+            if prctvals(ii) == 0
+                val = 0;
+            else
+                val = sign(prctvals(ii)) * inf;
+            end
             if ind == 1, inbinpos(ii) = 0.1; else, inbinpos(ii) = 0.9; end
             prctvals(ii) = val;
         else
@@ -132,10 +188,12 @@ end
 
 pcolorm(latitudes,longitudes,catdata)
 plotm(coastlat,coastlon,'Color','Black')
-caxis([1 length(categories)])
+if caxisflag
+    caxis([1 length(categories)])
+end
 colormap(mapcolors)
 c = colorbar;
-c.Ticks = 1:length(categories);
+c.Ticks = cticks;
 c.TickLabels = catlabels;
 c.FontSize = lgfont;
 if contains(figuretype,"analysis")
@@ -162,10 +220,10 @@ if prctflag
     end
     annotation('line',[x(2) x(2)],[y(prctscale==25) y(prctscale==75)],'LineWidth',2)
 end
-c.Position(1) = cpos(1) + 2.5*cpos(3);
-% c.Position(3) = cpos(3)/2;
-cpos = c.Position;
 if contains(axislegend,"CO_2e")
+    c.Position(1) = cpos(1) + 2.5*cpos(3);
+    % c.Position(3) = cpos(3)/2;
+    cpos = c.Position;
     cnums = round(categories./44*12);
     clabels = num2cell(cnums(2:numel(categories)-1));
     x = cpos(1) - ([.2,0]*cpos(3));
