@@ -61,7 +61,7 @@ else
         lgfont = 28;
         smfont = 20;
         figpos = [6 7 55.984 18.68];
-    elseif contains(figuretype,"two")
+    elseif contains(figuretype,["one","two","three"])
         %         figpos = [6 7 53.9113 18];
         figpos = [6 7 57.9 19.3302];
         lgfont = 21;
@@ -220,8 +220,10 @@ if prctflag
     end
     annotation('line',[x(2) x(2)],[y(prctscale==25) y(prctscale==75)],'LineWidth',2)
 end
-if contains(axislegend,"CO_2e")
+if ~contains(figuretype,"one") || contains(axislegend,"CO_2e")
     c.Position(1) = cpos(1) + 2.5*cpos(3);
+end
+if contains(axislegend,"CO_2e")
     % c.Position(3) = cpos(3)/2;
     cpos = c.Position;
     cnums = round(categories./44*12);

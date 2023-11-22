@@ -114,7 +114,7 @@ latlr = latlim005(2) - lowerresolution/2 : -lowerresolution : latlim005(1) + low
 lonlr = lonlim005(1) + lowerresolution/2 : lowerresolution : lonlim005(2) - lowerresolution/2;
 [lons,lats] = meshgrid(lonlr,latlr);
 
-thisfiguretype = "two panels";
+thisfiguretype = "three panels";
 
 for ll = 1 : numel(trunc)
     input = trunc(ll);
@@ -126,15 +126,15 @@ for ll = 1 : numel(trunc)
     
     save(ReforOppfname,lrvarname{:},'-append')
     
-    axislegend = 'Mg CO_2_e ha^-^1';
+    axislegend = 'Mg CO_2e ha^-^1';
     
     eval(strcat("prctvals =",truncstatsarraylist(ll),";"))
     
     % Pring jpeg figure
-    figurename = strcat(figuredir,input,".jpeg");
+    figurename = strcat(figuredir,input);
     figure(ll); clf
     h = albedofigure(lowresmap,seqcat,lats,lons,figurename,thisfiguretype,...
-    co2colorbar,prctvals,coastlat,coastlon,axislegend,true);
+    co2colorbar,prctvals,coastlat,coastlon,axislegend,false);
     
     clear lowresmap highresmap
 end
@@ -258,8 +258,10 @@ for bb = 1 : nbblocks
                     thismask = griscom == 1;
                 case "Bastin"
                     thismask = selectedbastin;
+                case "CombinedOpp"
+                    opmask = combinedopp;
             end
-            
+
             [area,co2,seq,missingareas,mismask] = binnedvalues(ao,carb,nci,...
                 thismask,offsetcat,negco2,continent,biome,pixarea,continentlist,biomelist,...
                 nodatacontinent,nodatabiome,landmask);
@@ -286,8 +288,18 @@ for bb = 1 : nbblocks
 
     load(statfilename,"BlockAreasbyBiome_AObase")
     bioareas = squeeze(sum(BlockAreasbyBiome_AObase(:,:,:,ncont+1),2));
+    [nba,noa] = size(bioareas);
     for tt = 1 : numel(thres)
         trareas = squeeze(sum(areaarray(:,:,:,tt),2));
+        [nbt,nott] = size(trareas);
+        if noa < nott
+            ii = ~ismember(allreforestationopp,"CombinedOpp");
+            trareas = trareas(:,ii);
+        end
+        if nba < nbt
+            ii = ~ismember(biomenames,["N/A","Rock and Ice"]);
+            trareas = trareas(ii,:);
+        end
         if ~isempty(find(abs(bioareas-trareas)>10^-4,1))
             error(strcat("My sums are not the same as before in block #",num2str(bb)))
         end
@@ -340,9 +352,16 @@ abase = AreasbyBiome_AObase(semigeographicorder,:,noi,ncont+1);
 cbase = TotalCO2byBiome_AObase(semigeographicorder,:,noi,ncont+1);
 sbase = JustCarbonbyBiome_AObase(semigeographicorder,:,noi,ncont+1);
 
-trarea = AreasbyBiome_AOwlk85(semigeographicorder,:,noi);
-trco2 = TotalCO2byBiome_AOwlk85(semigeographicorder,:,noi);
-trseq = JustCarbonbyBiome_AOwlk85(semigeographicorder,:,noi);
+[~,~,tnop,~] = size(AreasbyBiome_AOwlk85);
+if tnop == no+1
+    ii = ~ismember(allreforestationopp,"CombinedOpp");
+    rarea = AreasbyBiome_AOwlk85(:,:,ii);
+    rco2 = TotalCO2byBiome_AOwlk85(:,:,ii);
+    rseq = JustCarbonbyBiome_AOwlk85(:,:,ii);
+end
+trarea = rarea(semigeographicorder,:,noi);
+trco2 = rco2(semigeographicorder,:,noi);
+trseq = rseq(semigeographicorder,:,noi);
 
 for bb = 1 : nbiomes
     worldvalues((bb-1)*(no+1)+2:(bb-1)*(no+1)+no+1,1) = sum(abase(bb,:,:),2);

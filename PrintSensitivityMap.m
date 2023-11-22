@@ -38,10 +38,55 @@ h = albedofigure(AOsenslowres,sensitivitycategories,lats,lons,figurename,thisfig
 
 
 % Just checking
+% *************
+fileroot = strcat(regoutputfiles,"RadForcing005_");
+inputdataformat = "single";
+method = "mean";
+hiresnames = ["AlbedoRadiativeForcing","AlbedoRFmin","AlbedoRFmax"];
+albedostatname = 
 
-for kk = 1 : bdnames
-    eval(strcat("input = AO",bdnames(kk)));
+for ll = 1 : bdnames
+    input = strcat("AO",bdnames(ll));
+    [lowresmap,highresmap] = printmapprep(input,fileroot,preswlk,latlon005,inputdataformat,...
+        rastersize005,blocksize005,lowerresolution,method,missinglandblock,indexfileroot);
     
+    lowresmap(lowresmap<offsetcat(1)) = offsetcat(1);
+    lowresmap(lowresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
+    highresmap(highresmap<offsetcat(1)) = offsetcat(1);
+    highresmap(highresmap>offsetcat(numel(offsetcat))) = offsetcat(numel(offsetcat));
+
+    % Export Geotiff (high-resolution) map
+    fname = strcat(resultmaps,hiresnames(ll),"_005.tif");
+    geotiffwrite(fname,highresmap,R005,'TiffTags',cmptag);
+
+    lrvarname = strcat(input,"lowres");
+    eval(strcat(lrvarname," = lowresmap;"));
+
+    save(ReforOppfname,lrvarname,'-append')
+    
+    if contains(input,"AO")
+        thiscolorbar = aocolorbar;
+        thesecategories = offsetcat;
+        axislegend = "Albedo Offset [%]";
+    else
+        thiscolorbar = co2colorbar;
+        thesecategories = seqcat;
+        axislegend = 'Mg CO_2e ha^-^1';
+    end
+
+    thisfiguretype = "two panels";
+    eval(strcat("prctvals =",statname(ll),";"))
+    
+    % Pring figure
+    figurename = strcat(figuredir,figurenumber(ll),hiresnames(ll));
+    figure(ll); clf
+    h = albedofigure(lowresmap,thesecategories,lats,lons,figurename,thisfiguretype,thiscolorbar,...
+    prctvals,coastlat,coastlon,axislegend,false);
+
+    clear lowresmap highresmap
+end
+
+
 
 
 

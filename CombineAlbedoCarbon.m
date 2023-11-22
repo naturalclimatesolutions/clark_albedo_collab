@@ -90,8 +90,8 @@ save(sparameterfile,"Wsc",'-append')
 % ************************************************
 albedostats = ["med","min","max"];
 bdnames = ["base","minalb","maxalb"];   % these will be minimum and maximum effect, which will differ from RFmin and RFmax
-AOarrays = strcat("newAO",bdnames);
-NCIarrays = strcat("newNCI",bdnames);
+AOarrays = strcat("AO",bdnames);
+NCIarrays = strcat("NCI",bdnames);
 for bb = 1 : nbblocks
     if preswlk(bb) == false, continue; end
     subfilename = strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat");
@@ -130,7 +130,7 @@ for bb = 1 : nbblocks
     clear("walkertotbio",GWPmaps{:})
 end
 
-save(sparameterfile,"bdnames","AOarrays","NCIarrays",'-append')
+save(sparameterfile,"albedostats","bdnames","AOarrays","NCIarrays",'-append')
 
 
 
