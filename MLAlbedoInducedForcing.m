@@ -36,7 +36,7 @@ end
 for rr = 1 : nblocks
     tic
     if presland(rr) == false, continue; end
-    subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+    subdatafname = strcat(regoutputfiles,"Albedo05_",num2str(rr),".mat");
     load(subdatafname,inputvars{:});
 
     bli = bigtosmallblockscorrespondance(:,1) == rr;

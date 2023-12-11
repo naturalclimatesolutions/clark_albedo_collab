@@ -90,8 +90,8 @@ for m = 1 : nmonths
         if m == 12, m2 = 1; else, m2 = m+1; end
         val = mean(snowcover_all(i,j,[m1,m2]));
         if isnan(val)
-            if j == 1 || j == nlon, jj = [nlon,2]; else, jj = [j-1,j+1]; end 
-            if i == 1, ii = 2:3; elseif i == nlat, ii = nlat-2:nlat-1; else, ii = i-1:i+1; end 
+            if j == 1 || j == nlon05, jj = [nlon05,2]; else, jj = [j-1,j+1]; end 
+            if i == 1, ii = 2:3; elseif i == nlat05, ii = nlat05-2:nlat05-1; else, ii = i-1:i+1; end 
             val = mean(snowcover_all(ii,jj,m),'all','omitnan');
             if isnan(val), val = 0; end
         end
@@ -342,7 +342,7 @@ for rr = 1 : nblocks
     pixelarea = globalpixelarea(regi,regj);
     
     % g. Save in mat files
-    subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+    subdatafname = strcat(regoutputfiles,"Albedo05_",num2str(rr),".mat");
     save(subdatafname,'x','y','regi','regj','landcoverprop','blocklandmask',...
         'snowcover','directsolar','diffusesolar','diffusefraction',...
         'cam3','cam5','echam6','hadgem2','cack1','hadgem3','pixelarea');
@@ -376,7 +376,7 @@ for aa = 1 : nalb
         
         for rr = 1 : nblocks
             if presland(rr) == true
-                subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+                subdatafname = strcat(regoutputfiles,"Albedo05_",num2str(rr),".mat");
                 if m == 1
                     albedoatlas = blockalbedo;
                     load(subdatafname,'regi','regj');
@@ -412,7 +412,7 @@ clear aa m blockalbedo
 albedovars = cellstr(albsn);
 for rr = 1 : nblocks
     if presland(rr) == true
-        subdatafname = strcat(regoutputfiles,"AlbedoSubData_",num2str(rr),".mat");
+        subdatafname = strcat(regoutputfiles,"Albedo05_",num2str(rr),".mat");
         load(subdatafname,albedovars{:});
         
         for aa = 1 : nalb

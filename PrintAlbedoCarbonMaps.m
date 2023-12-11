@@ -75,7 +75,7 @@ end
 
 % Print only high res for data availability
 % *****************************************
-invars = ["RFmin005","RFmax005","NCIwlk85"];
+invars = ["GWPmin005","GWPmax005","NCIwlk85"];
 highresnames = ["AlbedoRadiativeForcing_min.tif","AlbedoRadiativeForcing_max.tif",...
     "ESATruncNetClimateImpact.tif"];
 for ll = 1 : numel(invars)
