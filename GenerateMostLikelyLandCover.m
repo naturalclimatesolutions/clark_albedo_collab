@@ -414,29 +414,107 @@ mlindnames = [mlindnames,"forwsaind"];
 save(sparameterfile,'mlnames','mlindnames','-append')
 
 
-% For answer to reviewers (histogram of most-likely origin)
-levlist = [1:numel(gridres),numel(gridres)+10,numel(gridres)+20,numel(gridres)+30,numel(gridres)+40];
-MLOLdt = zeros(nbiomes,numel(gridres)+4);
-MLFCdt = zeros(nbiomes,numel(gridres)+4);
+% For answer to reviewers (histogram of most-likely origin) - which became Figure S8
+levlist = [1:numel(gridres)+1,numel(gridres)+10,numel(gridres)+20,numel(gridres)+30,numel(gridres)+40];
+MLOLdt = zeros(nbiomes,numel(gridres)+5);
+MLFCdt = zeros(nbiomes,numel(gridres)+5);
+MLOLdtbyarea = zeros(nbiomes,numel(gridres)+5);
+MLFCdtbyarea = zeros(nbiomes,numel(gridres)+5);
 for bio = 1 : nbiomes
     blocks = find(bioperblock(:,bio));
-    histpblol = zeros(numel(blocks),numel(gridres)+4);
-    histpblfs = zeros(numel(blocks),numel(gridres)+4);
+    histpblol = zeros(numel(blocks),numel(gridres)+5);
+    histpblfs = zeros(numel(blocks),numel(gridres)+5);
+    histpblolbyarea = zeros(numel(blocks),numel(gridres)+5);
+    histpblfsbyarea = zeros(numel(blocks),numel(gridres)+5);
     for bid = 1 : numel(blocks)
         bb = blocks(bid);
-        load(strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat"),'biomes')
+        load(strcat(regoutputfiles,"ROinputs_",num2str(bb),".mat"),'biome','pixarea')
         load(strcat(regoutputfiles,"MostLikely005_",num2str(bb),".mat"),...
-            'MLOLalevels','MLFCalevels')
-
-        biomepix = biomes == biolist(bio);
-        histpblol(bid,:) = histcounts(MLOLalevels(biomepix),[levlist,100]);
-        histpblfs(bid,:) = histcounts(MLFCalevels(biomepix),[levlist,100]);
-        clear biomes MLOLalevels MLFCalevels bb biomepix
+            'MLOLleveldata','MLFCleveldata')
+        biomepix = biome == biomelist(bio);
+        histpblol(bid,:) = histcounts(MLOLleveldata(biomepix),[levlist,100]);
+        histpblfs(bid,:) = histcounts(MLFCleveldata(biomepix),[levlist,100]);
+        for ll = 1 : numel(levlist)
+            lev = levlist(ll);
+            pix = MLOLleveldata == lev;
+            kk = pix + biomepix == 2;
+            histpblolbyarea(bid,ll) = sum(pixarea(kk),"all","omitnan");clear pix kk
+            pix = MLFCleveldata == lev;
+            kk = pix + biomepix == 2;
+            histpblfsbyarea(bid,ll) = sum(pixarea(kk),"all","omitnan");clear pix kk
+        end
+        clear biome MLOLleveldata MLFCleveldata bb biomepix pixarea
     end
     MLOLdt(bio,:) = sum(histpblol);
     MLFCdt(bio,:) = sum(histpblfs);
-    clear blocks histpblfs histpblol bid
+    MLOLdtbyarea(bio,:) = sum(histpblolbyarea);
+    MLFCdtbyarea(bio,:) = sum(histpblfsbyarea);
+    clear blocks histpblfs histpblol bid histpblfsbyarea histpblolbyarea
 end
+
+semigeographicorder = [11,6,8,12,5,4,7,3,2,1,14,9,10,13];
+newlevs = [1,1,2,2,3,4,4,5,6,6,7,8,9,10,10]; newclas = unique(newlevs);
+levcolors = [255,245,235;254,230,206;253,208,162;253,174,107;253,141,60;...
+    241,105,19;217,72,1;166,54,3;127,39,4;50,12,4]/255;
+levlabels = ["\leq 0.01^{\circ}","\leq 0.05^{\circ}","\leq 0.1^{\circ}","\leq 0.5^{\circ}",...
+    "\leq 1^{\circ}","\leq 5^{\circ}","\leq 10^{\circ}","within ecoregion",...
+    "local biome","worldwide biome"];
+for ll = 1 : numel(dl)
+    eval(strcat("input = ",dl(ll),"dtbyarea(semigeographicorder,:);"))
+
+    pctarea = input ./ repmat(sum(input,2),[1,numel(levlist)]) .* 100;
+    data = zeros(nbiomes,numel(newclas));
+    for ii = 1 : numel(newclas)
+        data(:,ii) = sum(pctarea(:,newlevs==ii),2);
+    end
+
+    figure(ll); clf
+    h = gcf;
+    %     h.Position = [500, 200, 977, 892];
+    h.Units = 'centimeters';
+    h.Position = [19.8173 7.6729 24.8 17.1034];
+    b = barh(flip(data),'stacked');
+    for ii = 1 : numel(newclas)
+        %                 b(ii).FaceColor = 'flat';
+        b(ii).FaceColor = levcolors(ii,:);
+    end
+    ax = gca;
+    ax.FontSize = 20;
+    ax.Position = [0.1 0.2 .56 .7];
+    ax.XTick = 0:25:100;
+    ax.YTick = [];
+    ax.XLim = [0 100];
+    ax.XLabel.String = "% Area";
+    if ll == 2
+    colormap(levcolors)
+    c = colorbar;
+    c.Ticks = .05:.1:1;
+    c.TickLabels = cellstr(levlabels);
+    end
+    fname = strcat(figuredir,dl(ll),"DistanceHistogram.jpg");
+    print(fname,"-djpeg")
+end
+
+% Export table for "Data Availability"
+mldxfile = strcat(resfolder,"MLDistances.xlsx");
+vnames = ["Present","\leq 0.01^{\circ}","\leq 0.025^{\circ}","\leq 0.05^{\circ}",...
+    "\leq 0.1^{\circ}","\leq 0.25^{\circ}","\leq 0.5^{\circ}","\leq 1^{\circ}",...
+    "\leq 2.5^{\circ}","\leq 5^{\circ}","\leq 10^{\circ}","within ecoregion",...
+    "local biome","worldwide biome"];
+
+for ll = [1,4]
+    sheetname = erase(mllongnames(ll)," ");
+    if ll == 1, data = MLOLdtbyarea; else, data = MLFCdtbyarea; end
+    data = cat(2,data(:,1:numel(levlist)-2),sum(data(:,numel(levlist)-1:numel(levlist)),2));
+    T = array2table(data(semigeographicorder,:));
+    T.Properties.VariableNames = vnames;
+    T.Properties.RowNames = biomenames(semigeographicorder);
+    writetable(T,mldxfile,'Sheet',sheetname,'WriteRowNames',true)
+    clear data sheetname T
+end
+
+
+
 
 
 
