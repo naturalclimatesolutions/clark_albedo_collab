@@ -40,6 +40,8 @@ for ll = 1 : numel(mlnames)
     fname = strcat(figuredir,erase(mllongnames(ll)," "));
     albedofigure(lowresmap,IGBPAbbBio,lats,lons,fname,figuretype,mapcolors,...
         [],coastlat,coastlon," ",false);
+    albedofigure(lowresmap,IGBPBiomes,lats,lons,fname,figuretype,mapcolors,...
+        [],coastlat,coastlon," ",false);
 
     clear lowresmap highresmap
 end
@@ -122,8 +124,6 @@ end
         
 %     legend(flip(b)) % when using legend instead of colorbar but with the bins in the same order
 %                       than on the graph
-
-
 
 
 
