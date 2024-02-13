@@ -109,6 +109,28 @@ if isa(categories,'string')
             catlabels = cat(1,"Not defined",catlabels);
             mapcolors = cat(1,lightgreyval,mapcolors);
         end
+        if max(strlength(catlabels)) > 15
+            cc = find(strlength(catlabels) > 15);
+            for i = 1 : numel(cc)
+                lab = catlabels(cc(i));
+                wrd = split(lab," ");
+                if numel(wrd) == 2
+                    lab = strcat(wrd(1)," \n ",wrd(2));
+                elseif numel(wrd) == 3
+                    ww = strlength(wrd);
+                    c1 = ww(1) + ww(2);
+                    c2 = ww(2) + ww(3);
+                    if c1 < c2
+                       lab = strcat(wrd(1)," ",wrd(2)," \newline ",wrd(3));
+                    else
+                        lab = strcat(wrd(1)," \newline ",wrd(2)," ",wrd(3));
+                    end
+                else
+                    error("Code this")
+                end
+                catlabels(cc(i)) = lab;
+            end
+        end
         catlabels = cellstr(catlabels);
     end
     cticks = nlc/(2*extent):nlc/extent:nlc;
@@ -171,7 +193,7 @@ else
     prctflag = false;
 end
 
-
+catlabellength = max(strlength(string(catlabels)));
 
 clf
 h = gcf;
@@ -220,7 +242,7 @@ if prctflag
     end
     annotation('line',[x(2) x(2)],[y(prctscale==25) y(prctscale==75)],'LineWidth',2)
 end
-if ~contains(figuretype,"one") || contains(axislegend,"CO_2e")
+if (~contains(figuretype,"one") || contains(axislegend,"CO_2e")) && catlabellength <=15
     c.Position(1) = cpos(1) + 2.5*cpos(3);
 end
 if contains(axislegend,"CO_2e")
