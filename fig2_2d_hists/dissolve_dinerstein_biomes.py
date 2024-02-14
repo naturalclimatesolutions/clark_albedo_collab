@@ -1,3 +1,4 @@
+# read in and dissolve the RESOLVE 2017 ecoregion biomes
 import geopandas as gpd
 biomes = gpd.read_file('./Ecoregions2017.shp').loc[:, ['BIOME_NUM',
                                                        'BIOME_NAME',
