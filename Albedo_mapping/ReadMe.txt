@@ -1,1 +1,0 @@
-All scripts pertaining to mapping albedo
