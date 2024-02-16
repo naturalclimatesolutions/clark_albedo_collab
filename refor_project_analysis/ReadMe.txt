@@ -1,1 +1,1 @@
-All scripts pertaining to albedo reforestation project analysis
+All scripts pertaining to albedo reforestation project analysis for Figure 4 (Histogram), Figure S3 (Histogram), and Table S3 (Summary count). The supporing files used to generate results can be found in InputDataSheets.zip
