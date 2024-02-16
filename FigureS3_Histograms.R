@@ -4,14 +4,14 @@ library(dplyr)
 library(raster)
 
 # setwd
-setwd('C:/Users/samantha.yeo/OneDrive - The Nature Conservancy/Documents/Projects/BEF/Reforestation/Data-SampleSites/DataTables_112023/Final')
+setwd('...')
 
 # read tabs
 combined_nc <- read.csv('finalcount_NetClimateImpact.csv')
 
 # summary & histos 
 # Count values for Net Climate Imp
-summary_table_verif <- albOffset %>%
+summary_table_verif <- combined_nc %>%
   summarise(
     negative_lt0 = sum(Value < 0),
     positive_gt0 = sum(Value > 0),

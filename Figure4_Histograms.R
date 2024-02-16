@@ -4,7 +4,7 @@ library(dplyr)
 library(raster)
 
 # setwd
-setwd('C:/Users/samantha.yeo/OneDrive - The Nature Conservancy/Documents/Projects/BEF/Reforestation/Data-SampleSites/DataTables_112023/Final')
+setwd('...')
 
 
 # read tabs
